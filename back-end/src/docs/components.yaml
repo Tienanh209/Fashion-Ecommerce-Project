@@ -1,0 +1,69 @@
+components:
+  schemas:
+    Product:
+      type: object
+      properties:
+        product_id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          description: name of the product
+        description:
+          type: string
+          description: description of the product
+        category:
+          type: string
+          enum: [Shirt, Pants, Shoes]
+          description: category of the product
+        color:
+          type: string
+          enum: [red, blue, green, yellow, gray, black]
+          description: color of the product
+        size:
+          type: string
+          enum: [S, M, L, XL, XXL]
+          description: size of the product
+        price:
+          type: number
+          description: price of the product
+        stock:
+          type: number
+          description: quantity product in stock
+        image:
+          type: string
+          readOnly: true # Returned by HTTP GET
+          description: product's image path
+        imageFile:
+          type: string
+          format: binary
+          writeOnly: true # Used in POST/PUT/PATCH
+          description: product's image file
+  
+  responses:
+    '200NoData':
+      content:
+        application/json:
+          schemas:
+            type: object
+            properties:
+              status:
+                type: string
+                description: The response status
+                enum:
+                  - success
+              data:
+                type: object
+                nullable: true
+                default: null
+                description: The response data
+
+  parameters:
+    productIdParam:
+      name: product_id
+      description: id of the product
+      required: true
+      in: path
+      schemas:
+        type: string
+
