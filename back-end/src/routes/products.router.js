@@ -6,85 +6,72 @@ const router = express.Router();
 
 module.exports.setup = (app) => {
   app.use("/products", router);
+
+  /**
+   * @swagger
+   * tags:
+   *   - name: Products
+   *     description: Products listing & detail
+   */
+
   /**
    * @swagger
    * /products:
-   *  get:
-   *      summary: Get products by filter
-   *      description: Get products by filter
-   *      parameters:
-   *        - in: query
-   *          name: category
-   *          schema:
-   *            type: string
-   *            enum: [Shirt, Pants, Shoes]
-   *            description: Category of product
-   *        - in: query
-   *          name: color
-   *          schema:
-   *            type: string
-   *            enum: [red, blue, green, yellow, gray, black]
-   *            description: Color of product
-   *        - in: query
-   *          name: size
-   *          schema:
-   *            type: string
-   *            enum: [S, M, L, XL, XXL]
-   *            description: Size of product
-   *      tags:
-   *        - Products
-   *      responses:
-   *        200:
-   *          description: A list of products
-   *          content:
-   *            application/json:
-   *              scheme:
-   *                type: Object
-   *                properties:
-   *                  status:
-   *                    type: string
-   *                    description: status of the product
-   *                    enum: [success]
-   *                  data:
-   *                    type: Object
-   *                    properties:
-   *                      product:
-   *                        type: array
-   *                        $ref: '#/components/schemas/Product'
+   *   get:
+   *     summary: Get products (list)
+   *     tags: [Products]
+   *     parameters:
+   *       - $ref: '#/components/parameters/pageParam'
+   *       - $ref: '#/components/parameters/limitParam'
+   *       - in: query
+   *         name: title
+   *         schema: { type: string }
+   *       - in: query
+   *         name: category
+   *         schema:
+   *           type: string
+   *           enum: [T-shirts, Shirts, Jeans, Shorts, Jackets]
+   *     responses:
+   *       200:
+   *         description: List products with pagination
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status: { type: string, enum: [success] }
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     metadata: { $ref: '#/components/schemas/PaginationMetadata' }
+   *                     products:
+   *                       type: array
+   *                       items: { $ref: '#/components/schemas/Product' }
+   *
+   *   post:
+   *     summary: Create product
+   *     tags: [Products]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             $ref: '#/components/schemas/ProductInput'
+   *     responses:
+   *       201:
+   *         description: A new product
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status: { type: string, enum: [success] }
+   *                 data:
+   *                   type: object
+   *                   properties:
+   *                     product: { $ref: '#/components/schemas/Product' }
    */
   router.get("/", productsController.getProductsByFilter);
-  /**
-   * @swagger
-   * /products:
-   *  post:
-   *      summary:   Create a new product
-   *      description:  Create a new product
-   *      requestBody:
-   *        required: true
-   *        content:
-   *          multipart/form-data:
-   *            schema:
-   *              $ref:  '#/components/schemas/Product'
-   *      tags:
-   *        - Products
-   *      responses:
-   *        201:
-   *          description: A new product
-   *          content:
-   *            application/json:
-   *              schema:
-   *                type: object
-   *                properties:
-   *                  status:
-   *                    type: string
-   *                    description: The response status
-   *                    enum: [success]
-   *                  data:
-   *                    type: object
-   *                    properties:
-   *                      product:
-   *                        $ref: '#/components/schemas/Product'
-   */
   router.post("/", productsController.addProduct);
   router.all("/", methodNotAllowed);
 
@@ -92,81 +79,116 @@ module.exports.setup = (app) => {
    * @swagger
    * /products/{product_id}:
    *   get:
-   *    summary:    Get a product by id
-   *    description:  Get a product by id
-   *    parameters:
-   *        - $ref: '#/components/parameters/productIdParam'
-   *    tags:
-   *        - Products
-   *    responses:
-   *      200:
-   *        description: A product
-   *        content:
-   *          application/json:
-   *            schema:
-   *              type: object
-   *              properties:
-   *                status:
-   *                  type: string
-   *                  description:  The response status
-   *                  enum: [success]
-   *                data:
-   *                  type: object
-   *                  properties:
-   *                    product:
-   *                      $ref: '#/components/schemas/Product'
-   */
-  router.get("/:id", productsController.getProduct);
-  /**
-   * @swagger
-   *  /products/{product_id}:
-   *   put:
-   *     summary: Update product by ID
-   *     description: Update product by ID
-   *     parameters:
-   *       - $ref: '#/components/parameters/productIdParam'
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         multipart/form-data:
-   *           schema:
-   *             $ref: '#/components/schemas/Product'
-   *     tags:
-   *       - Products
+   *     summary: Get product detail (with variants & galleries)
+   *     tags: [Products]
+   *     parameters: [ { $ref: '#/components/parameters/productIdParam' } ]
    *     responses:
    *       200:
-   *         description: An updated product
+   *         description: Product detail
    *         content:
    *           application/json:
    *             schema:
    *               type: object
    *               properties:
-   *                 status:
-   *                   type: string
-   *                   description: The response status
-   *                   enum: [success]
+   *                 status: { type: string, enum: [success] }
    *                 data:
    *                   type: object
    *                   properties:
-   *                     product:
-   *                       $ref: '#/components/schemas/Product'
-   */
-  router.put("/:id", productsController.updateProduct);
-  /**
-   * @swagger
-   *  /products/{product_id}:
-   *   delete:
-   *     summary: Delete product by ID
-   *     description: Delete product by ID
-   *     parameters:
-   *       - $ref: '#/components/parameters/productIdParam'
-   *     tags:
-   *       - Products
+   *                     product: { $ref: '#/components/schemas/Product' }
+   *       404: { $ref: '#/components/responses/404NotFound' }
+   *
+   *   put:
+   *     summary: Update product by ID
+   *     tags: [Products]
+   *     parameters: [ { $ref: '#/components/parameters/productIdParam' } ]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             $ref: '#/components/schemas/ProductInput'
    *     responses:
    *       200:
-   *         description: Product deleted
-   *         $ref: '#/components/responses/200NoData'
+   *         description: Product updated
+   *       400: { $ref: '#/components/responses/400BadRequest' }
+   *       404: { $ref: '#/components/responses/404NotFound' }
+   *
+   *   delete:
+   *     summary: Delete product by ID
+   *     tags: [Products]
+   *     parameters: [ { $ref: '#/components/parameters/productIdParam' } ]
+   *     responses:
+   *       200: { $ref: '#/components/responses/200NoData' }
+   *       404: { $ref: '#/components/responses/404NotFound' }
    */
-  router.delete("/:id", productsController.deleteProduct);
-  router.all("/:id", methodNotAllowed);
+  router.get("/:product_id", productsController.getProduct);
+  router.put("/:product_id", productsController.updateProduct);
+  router.delete("/:product_id", productsController.deleteProduct);
+  router.all("/:product_id", methodNotAllowed);
+
+  /**
+   * @swagger
+   * /products/{product_id}/variants:
+   *   post:
+   *     summary: Create a variant for product
+   *     tags: [Products]
+   *     parameters: [ { $ref: '#/components/parameters/productIdParam' } ]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema: { $ref: '#/components/schemas/ProductVariant' }
+   *     responses:
+   *       201:
+   *         description: A new variant
+   */
+  router.post("/:product_id/variants", productsController.addVariant);
+  router.all("/:product_id/variants", methodNotAllowed);
+
+  /**
+   * @swagger
+   * /products/variants/{variant_id}:
+   *   delete:
+   *     summary: Delete product's variant by ID
+   *     tags: [Products]
+   *     parameters: [ { $ref: '#/components/parameters/variantIdParam' } ]
+   *     responses:
+   *       200: { $ref: '#/components/responses/200NoData' }
+   *       404: { $ref: '#/components/responses/404NotFound' }
+   */
+  router.delete("/variants/:variant_id", productsController.deleteVariant);
+  router.all("/variants/:variant_id", methodNotAllowed);
+
+  /**
+   * @swagger
+   * /products/{product_id}/galleries:
+   *   post:
+   *     summary: Add a new gallery
+   *     tags: [Products]
+   *     parameters: [ { $ref: '#/components/parameters/productIdParam' } ]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema: { $ref: '#/components/schemas/Gallery' }
+   *     responses:
+   *       201:
+   *         description: A new gallery
+   */
+  router.post("/:product_id/galleries", productsController.addGallery);
+  router.all("/:product_id/galleries", methodNotAllowed);
+
+  /**
+   * @swagger
+   * /products/galleries/{gallery_id}:
+   *   delete:
+   *     summary: Delete product's gallery by ID
+   *     tags: [Products]
+   *     parameters: [ { $ref: '#/components/parameters/galleryIdParam' } ]
+   *     responses:
+   *       200: { $ref: '#/components/responses/200NoData' }
+   *       404: { $ref: '#/components/responses/404NotFound' }
+   */
+  router.delete("/galleries/:gallery_id", productsController.deleteGallery);
+  router.all("/galleries/:gallery_id", methodNotAllowed);
 };
