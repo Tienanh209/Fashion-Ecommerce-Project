@@ -1,69 +1,289 @@
+info:
+  title: Fashion E-commerce API
+
 components:
   schemas:
-    Product:
+    Role:
       type: object
       properties:
-        product_id:
-          type: string
-          readOnly: true
-        name:
-          type: string
-          description: name of the product
-        description:
-          type: string
-          description: description of the product
+        role_id: { type: integer, readOnly: true }
+        name:    { type: string }
+
+    User:
+      type: object
+      properties:
+        user_id:     { type: integer, readOnly: true, description: "PK" }
+        fullname:    { type: string }
+        email:       { type: string, format: email }
+        phone_number: { type: string, nullable: true }
+        address:     { type: string, nullable: true }
+        avatar_url:  { type: string, nullable: true, readOnly: true }
+        role_id:     { type: integer, nullable: true }
+        role_name:   { type: string, nullable: true, readOnly: true }
+      required: [fullname, email]
+
+    UserRegisterInput:
+      type: object
+      required: [fullname, email, password]
+      properties:
+        fullname: { type: string }
+        email:    { type: string, format: email }
+        password: { type: string, format: password }
+        avatarFile: { type: string, format: binary, nullable: true }
+
+    UserLoginInputMultipart:
+      type: object
+      required: [email, password]
+      properties:
+        email:    { type: string, format: email }
+        password: { type: string, format: password }
+
+    Category:
+      type: object
+      properties:
+        category_id: { type: integer, readOnly: true }
+        name:        { type: string }
+
+    Product:
+      type: object
+      description: A product as returned by the API (read model)
+      properties:
+        product_id:  { type: integer, readOnly: true }
+        category:    { type: string, description: "Category name" }
+        title:       { type: string }
+        description: { type: string, nullable: true }
+        price:       { type: integer, description: "VND" }
+        discount:    { type: integer, minimum: 0, maximum: 100, default: 0 }
+        thumbnail:   { type: string, readOnly: true }
+        created_at:  { type: string, format: date-time, readOnly: true }
+        updated_at:  { type: string, format: date-time, readOnly: true }
+        variants:
+          type: array
+          items: { $ref: '#/components/schemas/ProductVariant' }
+        galleries:
+          type: array
+          items: { $ref: '#/components/schemas/Gallery' }
+
+    ProductInput:
+      type: object
+      required: [title, price, category]
+      properties:
         category:
           type: string
-          enum: [Shirt, Pants, Shoes]
-          description: category of the product
-        color:
+          enum: [T-shirts, Shirts, Jeans, Shorts, Jackets]
+        title:       { type: string }
+        description: { type: string }
+        price:       { type: integer }  
+        discount:    { type: integer, default: 0 }
+        thumbnailFile: { type: string, format: binary, nullable: true }
+
+    ProductVariant:
+      type: object
+      properties:
+        variant_id: { type: integer, readOnly: true }
+        size:       { type: string }
+        color:      { type: string }
+        sku:        { type: string, nullable: true }
+        price:      { type: integer, nullable: true, description: "VND; null -> fallback to product price" }
+        stock:      { type: integer }
+
+    Gallery:
+      type: object
+      properties:
+        gallery_id:    { type: integer, readOnly: true }
+        thumbnail:     { type: string, readOnly: true }
+        thumbnailFile: { type: string, format: binary, writeOnly: true }
+
+    CartItem:
+      type: object
+      properties:
+        cart_item_id:      { type: integer, readOnly: true }
+        user_id:           { type: integer }
+        variant_id:        { type: integer }
+        quantity:          { type: integer, minimum: 1 }
+        price_snapshot:    { type: integer, nullable: true } 
+        added_at:          { type: string, format: date-time, readOnly: true }
+        product_id:        { type: integer, readOnly: true }
+        product_title:     { type: string, readOnly: true }
+        product_thumbnail: { type: string, readOnly: true }
+        size:              { type: string, nullable: true, readOnly: true }
+        color:             { type: string, nullable: true, readOnly: true }
+        sku:               { type: string, nullable: true, readOnly: true }
+        variant_price:     { type: integer, nullable: true, readOnly: true } 
+        stock:             { type: integer, readOnly: true }
+
+    CartItemInput:
+      type: object
+      required: [variant_id, quantity]
+      properties:
+        variant_id: { type: integer }
+        quantity:   { type: integer, minimum: 1 }
+
+    CartWithItems:
+      type: object
+      properties:
+        cart: { nullable: true, type: object } 
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CartItem' }
+
+    Order:
+      type: object
+      properties:
+        order_id:    { type: integer, readOnly: true }
+        user_id:     { type: integer }
+        address:     { type: string }
+        note:        { type: string, nullable: true }
+        status:
           type: string
-          enum: [red, blue, green, yellow, gray, black]
-          description: color of the product
-        size:
+          enum: [pending, paid, shipped, completed, cancelled]
+        total_price: { type: integer }
+        created_at:  { type: string, format: date-time, readOnly: true }
+        updated_at:  { type: string, format: date-time, readOnly: true }
+
+    OrderItem:
+      type: object
+      properties:
+        order_item_id:     { type: integer, readOnly: true }
+        order_id:          { type: integer }
+        variant_id:        { type: integer }
+        quantity:          { type: integer }
+        price:             { type: integer } 
+        size:              { type: string, nullable: true, readOnly: true }
+        color:             { type: string, nullable: true, readOnly: true }
+        sku:               { type: string, nullable: true, readOnly: true }
+        product_id:        { type: integer, readOnly: true }
+        product_title:     { type: string, readOnly: true }
+        product_thumbnail: { type: string, readOnly: true }
+
+    OrderWithItems:
+      type: object
+      properties:
+        order: { $ref: '#/components/schemas/Order' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/OrderItem' }
+
+    OrderStatusUpdateInput:
+      type: object
+      required: [status]
+      properties:
+        status:
           type: string
-          enum: [S, M, L, XL, XXL]
-          description: size of the product
-        price:
-          type: number
-          description: price of the product
-        stock:
-          type: number
-          description: quantity product in stock
-        image:
+          enum: [pending, paid, shipped, completed, cancelled]
+
+    CheckoutInput:
+      type: object
+      required: [address]
+      properties:
+        address: { type: string }
+        note:    { type: string }
+
+    Review:
+      type: object
+      properties:
+        review_id:     { type: integer, readOnly: true }
+        product_id:    { type: integer }
+        user_id:       { type: integer }
+        order_item_id: { type: integer, nullable: true }
+        rating:        { type: integer, minimum: 1, maximum: 5 }
+        title:         { type: string, nullable: true }
+        content:       { type: string, nullable: true }
+        status:
           type: string
-          readOnly: true # Returned by HTTP GET
-          description: product's image path
-        imageFile:
-          type: string
-          format: binary
-          writeOnly: true # Used in POST/PUT/PATCH
-          description: product's image file
-  
+          enum: [pending, approved, rejected]
+        created_at:    { type: string, format: date-time, readOnly: true }
+        fullname:      { type: string, readOnly: true }
+        avatar_url:    { type: string, nullable: true, readOnly: true }
+
+    ReviewInput:
+      type: object
+      required: [rating]
+      properties:
+        rating:        { type: integer, minimum: 1, maximum: 5 }
+        title:         { type: string }
+        content:       { type: string }
+        order_item_id: { type: integer, nullable: true }
+        product_id:    { type: integer }
+
+    PaginationMetadata:
+      type: object
+      properties:
+        totalRecords: { type: integer, default: 0 }
+        firstPage:    { type: integer, default: 1 }
+        lastPage:     { type: integer, default: 1 }
+        page:         { type: integer, default: 1 }
+        limit:        { type: integer, default: 6 }
+
   responses:
-    '200NoData':
+    200NoData:
+      description: Successful response with no data
       content:
         application/json:
-          schemas:
+          schema:
             type: object
             properties:
-              status:
-                type: string
-                description: The response status
-                enum:
-                  - success
-              data:
-                type: object
-                nullable: true
-                default: null
-                description: The response data
+              status: { type: string, enum: [success] }
+              data:   { type: object, nullable: true, default: null }
+
+    400BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:  { type: string, enum: [error] }
+              message: { type: string }
+
+    401Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:  { type: string, enum: [error, fail] }
+              message: { type: string }
+
+    404NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:  { type: string, enum: [error] }
+              message: { type: string }
+
+    500ServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:  { type: string, enum: [error] }
+              message: { type: string }
 
   parameters:
-    productIdParam:
-      name: product_id
-      description: id of the product
-      required: true
-      in: path
-      schemas:
-        type: string
+    userIdParam:     { name: user_id, in: path, required: true, schema: { type: integer } }
+    cartItemIdParam: { name: cart_item_id, in: path, required: true, schema: { type: integer } }
+    orderIdParam:    { name: order_id, in: path, required: true, schema: { type: integer } }
+    categoryIdParam: { name: category_id, in: path, required: true, schema: { type: integer } }
+    productIdParam:  { name: product_id, in: path, required: true, schema: { type: integer } }
+    variantIdParam:  { name: variant_id, in: path, required: true, schema: { type: integer } }
+    galleryIdParam:  { name: gallery_id, in: path, required: true, schema: { type: integer } }
+    reviewIdParam:   { name: review_id, in: path, required: true, schema: { type: integer } }
 
+    pageParam:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, default: 1, minimum: 1 }
+
+    limitParam:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, default: 6, minimum: 1, maximum: 100 }
