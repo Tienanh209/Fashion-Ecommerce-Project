@@ -1,7 +1,7 @@
 const express = require("express");
 const productsController = require("../controllers/products.controller");
 const { methodNotAllowed } = require("../controllers/errors.controller");
-
+const thumbnailUpload = require("../middlewares/thumbnail-upload.middleware");
 const router = express.Router();
 
 module.exports.setup = (app) => {
@@ -31,6 +31,17 @@ module.exports.setup = (app) => {
    *         schema:
    *           type: string
    *           enum: [T-shirts, Shirts, Jeans, Shorts, Jackets]
+   *       - in: query
+   *         name: gender
+   *         schema:
+   *           type: string
+   *           enum: [male, female, unisex]
+   *       - in: query
+   *         name: brand_id
+   *         schema: { type: integer }
+   *       - in: query
+   *         name: brand
+   *         schema: { type: string }
    *     responses:
    *       200:
    *         description: List products with pagination
@@ -72,7 +83,7 @@ module.exports.setup = (app) => {
    *                     product: { $ref: '#/components/schemas/Product' }
    */
   router.get("/", productsController.getProductsByFilter);
-  router.post("/", productsController.addProduct);
+  router.post("/", thumbnailUpload, productsController.addProduct);
   router.all("/", methodNotAllowed);
 
   /**
@@ -108,8 +119,7 @@ module.exports.setup = (app) => {
    *           schema:
    *             $ref: '#/components/schemas/ProductInput'
    *     responses:
-   *       200:
-   *         description: Product updated
+   *       200: { description: Product updated }
    *       400: { $ref: '#/components/responses/400BadRequest' }
    *       404: { $ref: '#/components/responses/404NotFound' }
    *
@@ -122,7 +132,7 @@ module.exports.setup = (app) => {
    *       404: { $ref: '#/components/responses/404NotFound' }
    */
   router.get("/:product_id", productsController.getProduct);
-  router.put("/:product_id", productsController.updateProduct);
+  router.put("/:product_id", thumbnailUpload, productsController.updateProduct);
   router.delete("/:product_id", productsController.deleteProduct);
   router.all("/:product_id", methodNotAllowed);
 
@@ -139,8 +149,7 @@ module.exports.setup = (app) => {
    *         application/json:
    *           schema: { $ref: '#/components/schemas/ProductVariant' }
    *     responses:
-   *       201:
-   *         description: A new variant
+   *       201: { description: A new variant }
    */
   router.post("/:product_id/variants", productsController.addVariant);
   router.all("/:product_id/variants", methodNotAllowed);
@@ -172,10 +181,13 @@ module.exports.setup = (app) => {
    *         multipart/form-data:
    *           schema: { $ref: '#/components/schemas/Gallery' }
    *     responses:
-   *       201:
-   *         description: A new gallery
+   *       201: { description: A new gallery }
    */
-  router.post("/:product_id/galleries", productsController.addGallery);
+  router.post(
+    "/:product_id/galleries",
+    thumbnailUpload,
+    productsController.addGallery
+  );
   router.all("/:product_id/galleries", methodNotAllowed);
 
   /**

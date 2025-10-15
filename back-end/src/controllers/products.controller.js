@@ -4,31 +4,20 @@ const JSend = require("../jsend");
 
 // GET: /products
 async function getProductsByFilter(req, res, next) {
-  let result = {
-    products: [],
-    metadata: {
-      totalRecords: 0,
-      firstPage: 1,
-      lastPage: 1,
-      page: 1,
-      limit: 12,
-    },
-  };
-
   try {
-    result = await productsService.getManyProducts(req.query);
+    const result = await productsService.getManyProducts(req.query);
+    return res.json(
+      JSend.success({
+        products: result.products,
+        metadata: result.metadata,
+      })
+    );
   } catch (error) {
     console.log(error);
     return next(
       new ApiError(500, "An error occurred while retrieving products")
     );
   }
-  return res.json(
-    JSend.success({
-      products: result.products,
-      metadata: result.metadata,
-    })
-  );
 }
 
 // GET: /products/:product_id
@@ -52,22 +41,15 @@ async function addProduct(req, res, next) {
   if (!title || typeof title !== "string") {
     return next(new ApiError(400, "Title should be a non-empty string"));
   }
-
   try {
     const product = await productsService.addProduct({
-      ...req.body,
+      ...req.body, // include category, gender, brand or brand_id
       thumbnail: req.file ? `/public/uploads/${req.file.filename}` : null,
     });
     return res
       .status(201)
-      .set({
-        Location: `${req.baseUrl}/${product.product_id}`,
-      })
-      .json(
-        JSend.success({
-          product,
-        })
-      );
+      .set({ Location: `${req.baseUrl}/${product.product_id}` })
+      .json(JSend.success({ product }));
   } catch (error) {
     console.log(error);
     return next(new ApiError(500, "An error occurred while adding products"));
@@ -79,24 +61,14 @@ async function updateProduct(req, res, next) {
   if (Object.keys(req.body).length === 0 && !req.file) {
     return next(new ApiError(400, "Data to update can not be empty"));
   }
-
   const { product_id } = req.params;
-
   try {
     const updated = await productsService.updateProduct(product_id, {
-      ...req.body,
+      ...req.body, // include category, gender, brand or brand_id
       thumbnail: req.file ? `/public/uploads/${req.file.filename}` : null,
     });
-
-    if (!updated) {
-      return next(new ApiError(404, "Product not found"));
-    }
-
-    return res.json(
-      JSend.success({
-        product: updated,
-      })
-    );
+    if (!updated) return next(new ApiError(404, "Product not found"));
+    return res.json(JSend.success({ product: updated }));
   } catch (error) {
     console.log(error);
     return next(
@@ -123,25 +95,21 @@ async function deleteProduct(req, res, next) {
   }
 }
 
-// POST: /products/:product_id/variants
+// POST /products/:product_id/variants
 async function addVariant(req, res, next) {
   const { product_id } = req.params;
   try {
     const variant = await productsService.addVariant(product_id, {
       ...req.body,
     });
-    return res.status(201).json(
-      JSend.success({
-        variant,
-      })
-    );
+    return res.status(201).json(JSend.success({ variant }));
   } catch (error) {
     console.log(error);
     return next(new ApiError(500, "An error occurred while adding variant"));
   }
 }
 
-// DELETE: /products/variants/:variant_id
+// POST /products/variants/:variant_id
 async function deleteVariant(req, res, next) {
   const { variant_id } = req.params;
   try {
@@ -159,7 +127,7 @@ async function deleteVariant(req, res, next) {
   }
 }
 
-// POST: /products/:product_id/galleries
+// POST /products/:product_id/galleries
 async function addGallery(req, res, next) {
   const { product_id } = req.params;
   try {
@@ -168,21 +136,15 @@ async function addGallery(req, res, next) {
     });
     return res
       .status(201)
-      .set({
-        Location: `${req.baseUrl}/${gallery.gallery_id}`,
-      })
-      .json(
-        JSend.success({
-          gallery,
-        })
-      );
+      .set({ Location: `${req.baseUrl}/${gallery.gallery_id}` })
+      .json(JSend.success({ gallery }));
   } catch (error) {
     console.log(error);
     return next(new ApiError(500, "An error occurred while adding gallery"));
   }
 }
 
-// DELETE: /products/galleries/gallery_id
+// POST /products/galleries/:gallery_id
 async function deleteGallery(req, res, next) {
   const { gallery_id } = req.params;
   try {
