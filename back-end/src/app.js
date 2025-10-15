@@ -13,6 +13,7 @@ const usersRouter = require("./routes/users.router");
 const cartsRouter = require("./routes/carts.router");
 const ordersRouter = require("./routes/orders.router");
 const reviewsRouter = require("./routes/reviews.router");
+const brandsRouter = require("./routes/brands.router");
 
 const JSend = require("./jsend");
 const app = express();
@@ -30,6 +31,7 @@ app.use("/public", express.static("public"));
 
 usersRouter.setup(app);
 categoriesRouter.setup(app);
+brandsRouter.setup(app);
 productsRouter.setup(app);
 cartsRouter.setup(app);
 ordersRouter.setup(app);

@@ -24,6 +24,9 @@ CREATE TABLE users (
   CONSTRAINT fk_users_role FOREIGN KEY (role_id) REFERENCES roles(role_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- fullname: Tien Anh, email: tienanh@gmail.com, pass: Tienanh209
+-- fullname: Phuong Thao, email: phuongthao@gmail.com, pass: Phuongthao123
+-- fullname: Apple, email: apple@gmail.com, pass: Apple123
 select * from users;
 
 -- Categories
@@ -60,6 +63,14 @@ CREATE TABLE product_variants (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_variants_product FOREIGN KEY (product_id) REFERENCES products(product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Galleries
+CREATE TABLE galleries (
+  gallery_id INT AUTO_INCREMENT PRIMARY KEY,
+  product_id INT NOT NULL,
+  thumbnail VARCHAR(255) NOT NULL,
+  CONSTRAINT fk_galleries_product FOREIGN KEY (product_id) REFERENCES products(product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Cart items
@@ -116,5 +127,17 @@ CREATE TABLE reviews (
   UNIQUE KEY uq_reviews_order_item (order_item_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Brands
+CREATE TABLE brands (
+  brand_id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+ALTER TABLE products
+  ADD COLUMN brand_id INT NULL AFTER category_id,
+  ADD COLUMN gender ENUM('male','female','unisex') NOT NULL DEFAULT 'unisex' AFTER title,
+  ADD CONSTRAINT fk_products_brand FOREIGN KEY (brand_id) REFERENCES brands(brand_id);
+  
+INSERT INTO brands (name) VALUES ('Nike'),('Adidas'),('Uniqlo'),('Zara'),('H&M');
 
+select * from products;

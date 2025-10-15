@@ -45,3 +45,15 @@ VALUES
  (SELECT product_id FROM products WHERE title='Slim Blue Jeans'),
  (SELECT order_item_id FROM order_items WHERE variant_id=(SELECT variant_id FROM product_variants WHERE sku='JEAN-32-BLUE') LIMIT 1),
  4, 'Good fit', 'Nice fabric and fit.', 'approved');
+ 
+UPDATE products
+SET brand_id = (SELECT brand_id FROM brands WHERE name='Uniqlo')
+WHERE title IN ('Basic T-Shirt','Fleece Hoodie','Basic Polo Shirt','Windbreaker Jacket');
+
+UPDATE products
+SET brand_id = (SELECT brand_id FROM brands WHERE name='H&M')
+WHERE title IN ('Slim Blue Jeans','Cargo Shorts');
+
+UPDATE products
+SET brand_id = (SELECT brand_id FROM brands WHERE name='Adidas')
+WHERE title IN ('White Sneakers');

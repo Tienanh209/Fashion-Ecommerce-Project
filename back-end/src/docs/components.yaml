@@ -44,17 +44,27 @@ components:
         category_id: { type: integer, readOnly: true }
         name:        { type: string }
 
+    Brand:
+      type: object
+      properties:
+        brand_id: { type: integer, readOnly: true }
+        name: { type: string }
+
     Product:
       type: object
-      description: A product as returned by the API (read model)
       properties:
         product_id:  { type: integer, readOnly: true }
         category:    { type: string, description: "Category name" }
         title:       { type: string }
+        gender:
+          type: string
+          enum: [male, female, unisex]
         description: { type: string, nullable: true }
         price:       { type: integer, description: "VND" }
         discount:    { type: integer, minimum: 0, maximum: 100, default: 0 }
         thumbnail:   { type: string, readOnly: true }
+        brand_id:    { type: integer, nullable: true }
+        brand:       { type: string, nullable: true, description: "Brand name" }
         created_at:  { type: string, format: date-time, readOnly: true }
         updated_at:  { type: string, format: date-time, readOnly: true }
         variants:
@@ -72,9 +82,15 @@ components:
           type: string
           enum: [T-shirts, Shirts, Jeans, Shorts, Jackets]
         title:       { type: string }
+        gender:
+          type: string
+          enum: [male, female, unisex]
+          default: unisex
         description: { type: string }
-        price:       { type: integer }  
+        price:       { type: integer }
         discount:    { type: integer, default: 0 }
+        brand_id:    { type: integer, nullable: true }
+        brand:       { type: string, nullable: true }
         thumbnailFile: { type: string, format: binary, nullable: true }
 
     ProductVariant:
