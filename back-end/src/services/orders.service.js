@@ -25,16 +25,22 @@ async function getOrderItems(order_id, trx = knex) {
   return trx("order_items as oi")
     .leftJoin("product_variants as v", "oi.variant_id", "v.variant_id")
     .leftJoin("products as p", "v.product_id", "p.product_id")
+    .leftJoin("categories as c", "p.category_id", "c.category_id")
     .select(
       "oi.order_item_id",
       "oi.variant_id",
       "oi.quantity",
       "oi.price",
+      "v.price as variant_price",
       "v.size",
       "v.color",
       "v.sku",
+      "p.price as product_price",
+      "p.discount as product_discount",
       "p.title as product_title",
-      "p.thumbnail as product_thumbnail"
+      "p.thumbnail as product_thumbnail",
+      "p.category_id",
+      "c.name as category_name"
     )
     .where("oi.order_id", order_id);
 }

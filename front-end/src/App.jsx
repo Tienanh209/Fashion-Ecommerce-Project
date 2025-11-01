@@ -1,6 +1,6 @@
-import PublicRoutes from "./routes/PublicRoutes"
+import AppRoutes from "./routes/Routes"
 
 function App() {
-  return <PublicRoutes/>
+  return <AppRoutes/>
 }
 export default App
