@@ -31,6 +31,7 @@ import CustomerLayout from "../layouts/CustomerLayout";
 import AdminLayout from "../layouts/AdminLayout";
 
 import { useAuth } from "../contexts/AuthContext";
+import VirtualTryon from "../pages/shop/VirtualTryon";
 
 function RequireAuth() {
   const { user, ready } = useAuth();
@@ -68,6 +69,8 @@ export default function AppRoutes() {
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/virtual-tryon" element={<VirtualTryon />} />
+
         </Route>
         
 

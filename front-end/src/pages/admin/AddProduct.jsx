@@ -25,14 +25,12 @@ import SummaryStats from "../../components/admin/products/SummaryStats";
 import StockImportCard from "../../components/admin/products/StockImportCard";
 
 const DEFAULT_SIZE_OPTIONS = [
-  "XXS",
   "XS",
   "S",
   "M",
   "L",
   "XL",
   "2XL",
-  "3XL",
 ];
 const NUMERIC_SIZE_OPTIONS = [
   "26",

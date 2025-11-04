@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, Suspense, lazy } from "react";
 import { useParams, useNavigate } from "react-router";
-import { Breadcrumb, VariantPicker, QuantityControl, AlsoLikeGrid, ImageGallery } from "../../components"
+import { Breadcrumb, VariantPicker, QuantityControl, AlsoLikeGrid, ImageGallery } from "../../components";
 import { useAuth } from "../../contexts/AuthContext";
 import { getProduct, listProducts } from "../../services/products";
 import { addItem as addCartItem } from "../../services/carts";
@@ -73,6 +73,7 @@ export default function ProductDetail() {
 
   const [variant, setVariant] = useState({ color: "", size: "" });
   const [qty, setQty] = useState(1);
+  const [availableStock, setAvailableStock] = useState(null);
 
   useEffect(() => {
     let cancel = false;
@@ -84,6 +85,10 @@ export default function ProductDetail() {
       .then(async (p) => {
         if (cancel) return;
         setProduct(p || null);
+
+        if (Array.isArray(p?.variants) && p.variants.length === 0) {
+          setAvailableStock(Number(p?.stock ?? 0));
+        }
 
         // default variant
         const v0 = p?.variants?.[0];
@@ -111,6 +116,60 @@ export default function ProductDetail() {
     return product.price - Math.floor((product.price * (product.discount || 0)) / 100);
   }, [product]);
 
+  const variants = product?.variants || [];
+
+  useEffect(() => {
+    if (!product) return;
+
+    if (!variants.length) {
+      setAvailableStock(Number(product?.stock ?? 0));
+      return;
+    }
+
+    const id = resolveVariantId(variants, variant);
+    if (!id) {
+      setAvailableStock(0);
+      return;
+    }
+
+    const match = variants.find((v) => {
+      const vid = v.variant_id ?? v.id;
+      return Number(vid) === Number(id);
+    });
+
+    const rawStock =
+      match?.stock ??
+      match?.quantity ??
+      match?.inventory ??
+      match?.available ??
+      match?.available_stock ??
+      0;
+
+    setAvailableStock(Number(rawStock));
+  }, [product, variant, variants]);
+
+  useEffect(() => {
+    const stock = Number(availableStock);
+    if (Number.isFinite(stock) && stock >= 0) {
+      setQty((prev) => {
+        const desired = Number(prev) || 1;
+        return Math.min(Math.max(1, desired), stock || 1);
+      });
+    } else {
+      setQty((prev) => Math.max(1, Number(prev) || 1));
+    }
+  }, [availableStock]);
+
+  const handleQtyChange = (next) => {
+    const desired = Math.max(1, Number(next) || 1);
+    const stock = Number(availableStock);
+    if (availableStock !== null && Number.isFinite(stock) && stock >= 0) {
+      setQty(Math.min(desired, stock || 1));
+    } else {
+      setQty(desired);
+    }
+  };
+
   const onAddToCart = async () => {
     if (!ready) return;
     if (!user?.user_id) {
@@ -123,10 +182,21 @@ export default function ProductDetail() {
       return alert("Variant not available for this product.");
     }
 
+    const stock = Number(availableStock);
+    if (availableStock !== null && Number.isFinite(stock) && stock <= 0) {
+      return alert("This variant is currently out of stock.");
+    }
+
+    const desiredQty = Math.max(1, Number(qty || 1));
+    if (availableStock !== null && Number.isFinite(stock) && stock >= 0 && desiredQty > stock) {
+      setQty(stock || 1);
+      return alert(`Only ${stock} item${stock > 1 ? "s" : ""} available for this variant.`);
+    }
+
     try {
       await addCartItem(user.user_id, {
         variant_id,
-        quantity: Math.max(1, Number(qty || 1)),
+        quantity: desiredQty,
       });
 
       // Yêu cầu Header tự refresh badge
@@ -157,6 +227,11 @@ export default function ProductDetail() {
       </div>
     );
   }
+
+  const outOfStock =
+    (variants.length === 0 && Number(availableStock) <= 0) ||
+    (variants.length > 0 && Number(availableStock) <= 0);
+  const addDisabled = outOfStock || Number(availableStock) <= 0;
 
   return (
     <div className="min-h-screen bg-white container mx-auto px-4 py-6">
@@ -204,13 +279,20 @@ export default function ProductDetail() {
               />
             </div>
 
+            <div className="mt-4 text-sm text-gray-600">
+              {Number(availableStock) > 0
+                ? `In stock: ${Number(availableStock)} item${Number(availableStock) > 1 ? "s" : ""}`
+                : "Out of stock"}
+            </div>
+
             <div className="mt-6 flex items-center gap-3">
-              <QuantityControl value={qty} onChange={setQty} />
+              <QuantityControl value={qty} onChange={handleQtyChange} disabled={addDisabled} />
               <button
                 onClick={onAddToCart}
-                className="h-10 px-6 rounded-full bg-black text-white font-medium hover:opacity-90"
+                className={`h-10 px-6 rounded-full font-medium ${addDisabled ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-black text-white hover:opacity-90"}`}
+                disabled={addDisabled}
               >
-                Add to Cart
+                {outOfStock ? "Out of Stock" : "Add to Cart"}
               </button>
             </div>
           </section>

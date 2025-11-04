@@ -41,7 +41,7 @@ const INITIAL_SUMMARY = {
 };
 
 const ACTION_BTN_BASE =
-  "h-8 px-3 rounded-full border text-sm font-medium transition-colors";
+  "h-8 px-3 rounded-full border border-neutral-200 shadow-sm text-sm font-medium transition-colors";
 const DISABLED_BTN_STYLE =
   "border-gray-200 text-gray-400 bg-gray-100 cursor-not-allowed";
 
@@ -354,7 +354,7 @@ export default function OrdersManagement() {
           <div />
           <div className="flex items-center gap-3">
             <select
-              className="border rounded-full px-3 py-1.5"
+              className="border-neutral-200 rounded-full px-3 py-1.5 shadow-sm"
               value={status}
               onChange={(e) => {
                 setPage(1);
@@ -370,7 +370,7 @@ export default function OrdersManagement() {
             </select>
 
             <select
-              className="border rounded-full px-3 py-1.5"
+              className="border-neutral-200 rounded-full px-3 py-1.5 shadow-sm"
               value={limit}
               onChange={(e) => {
                 setPage(1);
@@ -387,7 +387,7 @@ export default function OrdersManagement() {
         </div>
 
         {/* table */}
-        <div className="border rounded-2xl overflow-hidden">
+        <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
@@ -400,7 +400,7 @@ export default function OrdersManagement() {
                 <th className="p-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-neutral-200">
               {rows.length === 0 && !loading && !error ? (
                 <tr>
                   <td className="p-6 text-center" colSpan={isAdmin ? 7 : 6}>
@@ -490,14 +490,14 @@ export default function OrdersManagement() {
             <button
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="h-8 px-3 rounded-full border disabled:opacity-50"
+              className="h-8 px-3 rounded-full border-neutral-200 shadow-sm disabled:opacity-50"
             >
               Prev
             </button>
             <button
               disabled={page >= Math.max(1, Math.ceil(total / limit))}
               onClick={() => setPage((p) => p + 1)}
-              className="h-8 px-3 rounded-full border disabled:opacity-50"
+              className="h-8 px-3 rounded-full border-neutral-200 shadow-sm disabled:opacity-50"
             >
               Next
             </button>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getOrder as apiGetOrder, updateOrderStatus as apiUpdateStatus } from "../../services/orders";
 import { getUser as apiGetUser } from "../../services/users";
 import dayjs from "dayjs";
-import { resolveVariantMetaBatch, getProduct } from "../../services/products";
+import { getProductByVariantId, getProduct } from "../../services/products";
 import { imgUrl } from "../../utils/image";
 import UpdateOrderModal from "./UpdateOrderModal";
 import { Printer } from "lucide-react";
@@ -41,14 +41,18 @@ const enrichOrderItems = async (rawItems = []) => {
     ),
   ];
 
-  let metaMap = new Map();
+  const variantMap = new Map();
   if (variantIds.length > 0) {
-    try {
-      metaMap = await resolveVariantMetaBatch(variantIds);
-    } catch (err) {
-      console.warn("[OrderDetailModal] resolveVariantMetaBatch failed", err);
-      metaMap = new Map();
-    }
+    await Promise.all(
+      variantIds.map(async (id) => {
+        try {
+          const detail = await getProductByVariantId(id);
+          if (detail) variantMap.set(id, detail);
+        } catch (err) {
+          console.warn("[OrderDetailModal] getProductByVariantId failed", id, err);
+        }
+      })
+    );
   }
 
   const productIds = [
@@ -60,9 +64,19 @@ const enrichOrderItems = async (rawItems = []) => {
   ];
 
   const productMap = {};
-  if (productIds.length > 0) {
+
+  variantMap.forEach((detail) => {
+    const product = detail?.product;
+    if (product?.product_id != null) {
+      productMap[product.product_id] = product;
+    }
+  });
+
+  const missingProductIds = productIds.filter((pid) => pid && !productMap[pid]);
+
+  if (missingProductIds.length > 0) {
     await Promise.all(
-      productIds.map(async (pid) => {
+      missingProductIds.map(async (pid) => {
         if (!pid) return;
         try {
           const product = await getProduct(pid);
@@ -76,35 +90,38 @@ const enrichOrderItems = async (rawItems = []) => {
 
   return rawItems.map((it) => {
     const variantId = Number(getVariantId(it)) || 0;
-    const meta = variantId ? metaMap.get(variantId) : null;
+    const variantDetail = variantId ? variantMap.get(variantId) : null;
+    const variantInfo = variantDetail?.variant || null;
 
-    const productId = Number(getProductId(it)) || 0;
+    const inferredProductId =
+      Number(getProductId(it)) ||
+      Number(variantInfo?.product_id) ||
+      0;
+
     const fallbackProduct =
-      (meta?.product_id ? productMap[meta.product_id] : null) ||
-      (productId ? productMap[productId] : null) ||
+      variantDetail?.product ||
+      (inferredProductId ? productMap[inferredProductId] : null) ||
       it.product ||
-      it.product_variant?.product ||
       null;
 
-    const thumbCandidate =
-      meta?.product_thumbnail ||
-      it.thumbnail;
+    const thumbCandidate = fallbackProduct?.thumbnail;
+
 
     const resolvedThumb =
       thumbCandidate && thumbCandidate !== PLACEHOLDER_IMG
         ? imgUrl(thumbCandidate)
         : "";
 
-    const titleCandidate =
-      meta?.product_title ||
-      it.title;
+    const titleCandidate = variantDetail?.product?.title;
 
     return {
       ...it,
-      _variantMeta: meta || undefined,
+      _variantMeta: variantInfo || undefined,
       _product: fallbackProduct || undefined,
       _thumb: resolvedThumb || PLACEHOLDER_IMG,
       _title: titleCandidate || "Product",
+      size: variantInfo?.size || it.size,
+      color: variantInfo?.color || it.color,
     };
   });
 };

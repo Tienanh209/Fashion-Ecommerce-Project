@@ -192,7 +192,6 @@ export default function Customers() {
     const totalCustomers = metadata?.totalRecords ?? tableRows.length;
     const vipCount = tableRows.filter((r) => r.tier === "Gold" || r.tier === "Diamond").length;
     const totalSpent = tableRows.reduce((sum, r) => sum + Number(r.spent || 0), 0);
-    const totalOrders = tableRows.reduce((sum, r) => sum + Number(r.orders || 0), 0);
     const avgOrderValuePerCustomer = totalCustomers
       ? totalSpent / totalCustomers
       : 0;

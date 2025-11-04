@@ -4,6 +4,50 @@ import { useAuth } from "../../contexts/AuthContext";
 import { imgUrl } from "../../utils/image";
 import { getCart } from "../../services/carts";
 
+function formatInitials(source) {
+  const trimmed = (source || "").trim();
+  if (!trimmed) return "";
+  const words = trimmed.split(/\s+/).filter(Boolean);
+
+  if (words.length >= 2) {
+    const first = Array.from(words[0] || "")[0] || "";
+    const second = Array.from(words[1] || "")[0] || "";
+    const combined = `${first}${second}`.trim();
+    if (combined) return combined.toUpperCase();
+  }
+
+  const letters = Array.from((words[0] || trimmed).replace(/\s+/g, ""));
+  if (letters.length === 0) return "";
+  if (letters.length === 1) {
+    const char = letters[0];
+    return `${char}${char}`.toUpperCase();
+  }
+  return `${letters[0]}${letters[1]}`.toUpperCase();
+}
+
+function getUserInitials(info) {
+  if (!info) return "";
+
+  const candidates = [
+    info.fullname,
+    "TA"
+  ];
+  for (const candidate of candidates) {
+    const value = formatInitials(candidate);
+    if (value) return value;
+  }
+
+  const emailCandidates = [info.email, info.user?.email]
+    .filter(Boolean)
+    .map((email) => email.split("@")[0] || email);
+  for (const candidate of emailCandidates) {
+    const value = formatInitials(candidate);
+    if (value) return value;
+  }
+
+  return "??";
+}
+
 export default function Header() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -91,16 +135,16 @@ export default function Header() {
             Home
             <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-black transition-all group-hover:w-full" />
           </NavLink>
-          <NavLink to="/best-selling" className="relative group">
-            Best Selling
-            <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-black transition-all group-hover:w-full" />
-          </NavLink>
-          <NavLink to="/new-arrivals" className="relative group">
-            New Arrivals
-            <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-black transition-all group-hover:w-full" />
-          </NavLink>
           <NavLink to="/shop" className="relative group">
             Shop
+            <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-black transition-all group-hover:w-full" />
+          </NavLink>
+          <NavLink to="/virtual-tryon" className="relative group">
+            Virtual Try-on
+            <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-black transition-all group-hover:w-full" />
+          </NavLink>
+          <NavLink to="/about-us" className="relative group">
+            About Us
             <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-black transition-all group-hover:w-full" />
           </NavLink>
         </nav>
@@ -131,19 +175,25 @@ export default function Header() {
             <button
               aria-label="Account"
               onClick={() => (user ? setMenuOpen((s) => !s) : navigate("/login"))}
-              className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
+              className="relative p-1 rounded-full hover:bg-gray-100 transition-colors"
             >
-              {user?.avatar_url ? (
-                <img
-                  src={imgUrl(user.avatar_url)}
-                  alt="avatar"
-                  className="h-6 w-6 rounded-full object-cover"
-                />
+              {user ? (
+                user?.avatar_url == null ? (
+                  <img
+                    src={imgUrl(user.avatar_url)}
+                    alt="avatar"
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-md font-semibold uppercase text-gray-700">
+                    {getUserInitials(user)}
+                  </span>
+                )
               ) : (
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
+                  width="25"
+                  height="25"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -221,8 +271,8 @@ export default function Header() {
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
+              width="25"
+              height="25"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"

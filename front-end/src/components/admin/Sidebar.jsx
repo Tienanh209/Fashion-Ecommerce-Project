@@ -11,7 +11,7 @@ import {
 import { NavLink } from "react-router";
 
 const nav = [
-  { key: "dashboard", label: "Dashboard", icon: LayoutGrid, to: "/admin" },
+  { key: "dashboard", label: "Dashboard", icon: LayoutGrid, to: "/admin", end: true },
   { key: "order-management", label: "Order Management", icon: ClipboardList, to: "/admin/orders" },
   { key: "inventory", label: "Inventory", icon: Boxes, to: "/admin/inventory" },
   { key: "add-product", label: "Add Product", icon: SquarePlus, to: "/admin/addproduct" },
@@ -20,7 +20,7 @@ const nav = [
   { key: "settings", label: "Settings", icon: SettingsIcon, to: "/admin/settings" },
 ];
 
-export default function Sidebar({ active = "dashboard" }) {
+export default function Sidebar() {
   return (
     <aside className="flex h-screen w-64 flex-col bg-[#181615] text-neutral-200">
       {/* Brand block */}
@@ -47,27 +47,31 @@ export default function Sidebar({ active = "dashboard" }) {
         <ul className="flex flex-col gap-1">
           {nav.map((item) => {
             const Icon = item.icon;
-            const isActive = active === item.key;
             return (
               <li key={item.key}>
-                {/* Đổi <a> sang NavLink nếu bạn dùng react-router */}
                 <NavLink
                   to={item.to}
-                  aria-current={isActive ? "page" : undefined}
-                  className={[
-                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition",
-                    isActive
-                      ? "bg-white/10 text-white"
-                      : "text-neutral-300 hover:bg-white/5 hover:text-white",
-                  ].join(" ")}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    [
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition",
+                      isActive
+                        ? "bg-white/10 text-white"
+                        : "text-neutral-300 hover:bg-white/5 hover:text-white",
+                    ].join(" ")
+                  }
                 >
-                  <Icon
-                    className={[
-                      "h-4 w-4 shrink-0",
-                      isActive ? "text-white" : "text-neutral-300",
-                    ].join(" ")}
-                  />
-                  <span>{item.label}</span>
+                  {({ isActive }) => (
+                    <>
+                      <Icon
+                        className={[
+                          "h-4 w-4 shrink-0",
+                          isActive ? "text-white" : "text-neutral-300",
+                        ].join(" ")}
+                      />
+                      <span>{item.label}</span>
+                    </>
+                  )}
                 </NavLink>
               </li>
             );

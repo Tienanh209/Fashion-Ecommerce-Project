@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import {ProductCard} from "../../components";
+import {ProductCard} from "..";
 import { listProducts } from "../../services/products";
 
 function chunk(arr, size) {
@@ -9,13 +9,12 @@ function chunk(arr, size) {
   return out;
 }
 
-export default function BestSelling() {
+export default function NewArrivals() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [idx, setIdx] = useState(0);
 
-  // Swipe + Drag
   const touchX = useRef(null);
   const drag = useRef({ down: false, x: 0 });
   const onTouchStart = (e) => (touchX.current = e.touches[0].clientX);
@@ -40,14 +39,8 @@ export default function BestSelling() {
   useEffect(() => {
     let cancel = false;
     setLoading(true);
-    listProducts({ limit: 24 })
-      .then(({ products }) => {
-        if (cancel) return;
-        const discounted = products.filter((p) => (p.discount || 0) > 0);
-        const data = (discounted.length ? discounted : products).slice(0, 24);
-        setItems(data);
-        setLoading(false);
-      })
+    listProducts({ page: 1, limit: 24 })
+      .then(({ products }) => !cancel && (setItems(products), setLoading(false)))
       .catch((e) => !cancel && (setError(e.message), setLoading(false)));
     return () => { cancel = true; };
   }, []);
@@ -65,7 +58,7 @@ export default function BestSelling() {
     >
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-serif font-bold text-[#1E392A]">Best selling</h2>
+          <h2 className="text-4xl md:text-5xl font-serif font-bold text-[#1E392A]">New Arrivals</h2>
           <p className="text-gray-500 mt-4 max-w-2xl mx-auto">
             Get in on the trend with our curated selection of best-selling styles.
           </p>
@@ -75,10 +68,8 @@ export default function BestSelling() {
         {error && <div className="text-center text-red-500">{error}</div>}
 
         {!loading && !error && (
-          <>
-    {/* GRID */}
+  <>
     <div className="relative overflow-visible">
-      {/* overlay arrows — đặt ra ngoài grid, không đè lên card */}
       <button
         aria-label="Previous"
         onClick={prev}
@@ -103,7 +94,6 @@ export default function BestSelling() {
       </div>
     </div>
 
-    {/* dots */}
     <div className="mt-6 flex items-center justify-center gap-2">
       {groups.map((_, i) => (
         <button
@@ -115,17 +105,16 @@ export default function BestSelling() {
       ))}
     </div>
 
-    {/* see all -> Shop (sort=price-desc) */}
     <div className="text-center mt-12">
       <Link
-        to="/shop?sort=price-desc"
+        to="/shop?sort=newest"
         className="inline-block px-8 py-3 rounded-md border border-[#1E392A] text-[#1E392A] font-semibold hover:bg-[#1E392A] hover:text-white transition-colors duration-300"
       >
         See all →
       </Link>
     </div>
   </>
-        )}
+)}
       </div>
     </section>
   );

@@ -1,5 +1,4 @@
-import {Hero, Testimonials, CategoryTiles} from "../../components"
-import {BestSelling, NewArrivals} from "../../pages"
+import { Hero, Testimonials, CategoryTiles, BestSelling, NewArrivals } from "../../components"
  
 function Home() {
     return <>

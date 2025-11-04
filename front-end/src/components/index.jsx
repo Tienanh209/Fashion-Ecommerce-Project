@@ -22,3 +22,8 @@ export { default as ReviewCard } from "./reviews/ReviewCard";
 // ========== shop ==========
 export { default as Pagination } from "./shop/Pagination";
 export { default as SidebarFilters } from "./shop/SidebarFilters";
+export { default as NewArrivals } from "./shop/NewArrivals";
+export { default as BestSelling } from "./shop/BestSelling";
+export { default as SidebarTryon } from "./shop/SidebarTryon";
+
+

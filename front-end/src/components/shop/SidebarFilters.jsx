@@ -1,8 +1,52 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { listCategories } from "../../services/categories";
 import { listBrands } from "../../services/brands";
 
-const fmtVND = (n) => n.toLocaleString("vi-VN") + "₫";
+const fmtVND = (n) => {
+  const value = Number(n);
+  return (Number.isFinite(value) ? value : 0).toLocaleString("vi-VN") + "₫";
+};
+const normalize = (value) => (value ?? "").toString().trim().toLowerCase();
+const slugify = (value) =>
+  normalize(value).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+function matchCategory(input, categories = []) {
+  if (!input) return null;
+  const raw = (input ?? "").toString();
+  const normalized = normalize(raw);
+
+  const byId =
+    categories.find(
+      (category) =>
+        category?.category_id !== undefined &&
+        String(category.category_id) === raw
+    ) ?? null;
+  if (byId) return byId;
+
+  const byNumber =
+    !Number.isNaN(Number(raw)) && raw !== ""
+      ? categories.find(
+          (category) =>
+            category?.category_id !== undefined &&
+            String(category.category_id) === String(Number(raw))
+        ) ?? null
+      : null;
+  if (byNumber) return byNumber;
+
+  const byName =
+    categories.find(
+      (category) => normalize(category?.name) === normalized
+    ) ?? null;
+  if (byName) return byName;
+
+  const bySlug =
+    categories.find(
+      (category) => slugify(category?.name) === normalized
+    ) ?? null;
+  if (bySlug) return bySlug;
+
+  return null;
+}
 
 function SidebarFilters({
   category, setCategory,
@@ -24,8 +68,24 @@ function SidebarFilters({
     return () => { cancel = true; };
   }, []);
 
+  useEffect(() => {
+    if (!category || !cats.length) return;
+    const resolved = matchCategory(category, cats);
+    if (resolved?.name && resolved.name !== category) {
+      setCategory(resolved.name);
+    }
+  }, [category, cats, setCategory]);
+
   const onMinChange = (v) => setMinPrice(Math.min(+v, maxPrice - MIN_GAP));
   const onMaxChange = (v) => setMaxPrice(Math.max(+v, minPrice + MIN_GAP));
+
+  const activeCategoryName = useMemo(() => {
+    const resolved = matchCategory(category, cats);
+    return resolved?.name || "";
+  }, [category, cats]);
+
+  const isCategoryActive = (item) =>
+    !!item?.name && normalize(item.name) === normalize(activeCategoryName);
 
   return (
     <aside className="hidden md:block">
@@ -44,8 +104,10 @@ function SidebarFilters({
               <button
                 key={c.category_id}
                 type="button"
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-50 ${category === c.name ? "bg-gray-50" : ""}`}
-                onClick={() => setCategory(category === c.name ? "" : c.name)}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-50 ${
+                  isCategoryActive(c) ? "bg-gray-50" : ""
+                }`}
+                onClick={() => setCategory(isCategoryActive(c) ? "" : c.name)}
               >
                 <span className="text-gray-700">{c.name}</span>
                 <span className="text-gray-400">›</span>

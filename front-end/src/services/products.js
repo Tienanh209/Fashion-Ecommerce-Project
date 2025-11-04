@@ -1,7 +1,12 @@
 import http from "./http";
 
 export async function listProducts(params = {}) {
-  const data = await http.getJSON("/products", params);
+  const query = Object.fromEntries(
+    Object.entries(params).filter(
+      ([, value]) => value !== undefined && value !== null && value !== ""
+    )
+  );
+  const data = await http.getJSON("/products", { params: query });
   return {
     products: data?.products || [],
     metadata: data?.metadata || {
@@ -16,6 +21,11 @@ export async function listProducts(params = {}) {
 export async function getProduct(product_id) {
   const data = await http.getJSON(`/products/${product_id}`);
   return data?.product;
+}
+
+export async function getProductByVariantId(variant_id) {
+  const data = await http.getJSON(`/products/variants/${variant_id}/details`);
+  return data;
 }
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
@@ -69,10 +79,37 @@ export async function resolveVariantMeta(variant_id) {
 
 export async function resolveVariantMetaBatch(variantIds = []) {
   const uniq = [...new Set(variantIds.map(Number))].filter(Boolean);
-  const metas = await Promise.all(uniq.map((id) => resolveVariantMeta(id)));
+  const entries = await Promise.all(
+    uniq.map(async (id) => {
+      try {
+        const detail = await getProductByVariantId(id);
+        const product = detail?.product || {};
+        const variant = detail?.variant || {};
+        const galleries = detail?.galleries || [];
+
+        const thumbCandidate =
+          variant.thumbnail || product.thumbnail || galleries[0]?.image_url || "";
+
+        return {
+          variant_id: Number(id),
+          product_id: Number(variant.product_id ?? product.product_id ?? 0),
+          size: variant.size || "",
+          color: variant.color || "",
+          product_title: product.title || variant.title || "Product",
+          product_thumbnail: toImageUrl(thumbCandidate),
+        };
+      } catch (error) {
+        console.warn("[products] resolveVariantMetaBatch failed", id, error);
+        return null;
+      }
+    })
+  );
+
   const map = new Map();
-  metas.forEach((m) => {
-    if (m && m.variant_id) map.set(m.variant_id, m);
+  entries.forEach((entry) => {
+    if (entry && entry.variant_id) {
+      map.set(entry.variant_id, entry);
+    }
   });
   return map;
 }

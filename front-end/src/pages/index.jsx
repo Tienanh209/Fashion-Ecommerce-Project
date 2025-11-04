@@ -3,8 +3,6 @@ export { default as Home } from "./home/Home";
 
 // Shop
 export { default as Shop } from "./shop/Shop";
-export { default as BestSelling } from "./shop/BestSelling";
-export { default as NewArrivals } from "./shop/NewArrivals";
 
 // Product
 export { default as ProductDetail } from "./product/ProductDetail";
