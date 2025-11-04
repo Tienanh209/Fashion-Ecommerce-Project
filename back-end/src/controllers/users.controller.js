@@ -126,6 +126,47 @@ async function login(req, res, next) {
   }
 }
 
+// PATCH /:user_id/password
+async function changePassword(req, res, next) {
+  const { user_id } = req.params;
+  const { current_password, new_password, confirm_password } = req.body || {};
+
+  if (!current_password || !new_password || !confirm_password) {
+    return next(
+      new ApiError(
+        400,
+        "current_password, new_password, confirm_password are required"
+      )
+    );
+  }
+  if (String(new_password).length < 6) {
+    return next(
+      new ApiError(400, "New password must be at least 6 characters")
+    );
+  }
+  if (String(new_password) !== String(confirm_password)) {
+    return next(new ApiError(400, "Confirm password does not match"));
+  }
+
+  try {
+    const result = await usersService.changePassword(user_id, {
+      current_password,
+      new_password,
+    });
+    if (!result.ok) {
+      if (result.code === 404) return next(new ApiError(404, "User not found"));
+      if (result.code === 400) return next(new ApiError(400, result.message));
+      return next(new ApiError(500, "Could not change password"));
+    }
+    return res.json(JSend.success()); // không trả dữ liệu nhạy cảm
+  } catch (err) {
+    console.error(err);
+    return next(
+      new ApiError(500, `Error changing password for user_id=${user_id}`)
+    );
+  }
+}
+
 module.exports = {
   listUsers,
   getUser,
@@ -133,4 +174,5 @@ module.exports = {
   deleteUser,
   register,
   login,
+  changePassword,
 };

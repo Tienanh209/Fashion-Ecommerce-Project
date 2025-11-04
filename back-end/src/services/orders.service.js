@@ -29,6 +29,7 @@ async function getOrderItems(order_id, trx = knex) {
     .select(
       "oi.order_item_id",
       "oi.variant_id",
+      "v.product_id",
       "oi.quantity",
       "oi.price",
       "v.price as variant_price",

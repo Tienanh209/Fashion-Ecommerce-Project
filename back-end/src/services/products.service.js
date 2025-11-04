@@ -8,6 +8,7 @@ function productWithCategoryBrand() {
     .leftJoin("brands as b", "p.brand_id", "b.brand_id")
     .select(
       "p.product_id",
+      "p.category_id",
       "c.name as category",
       "p.title",
       "p.gender",
@@ -44,6 +45,7 @@ async function convertBrandId(brand, brand_id) {
 async function readProduct(payload) {
   const {
     category,
+    category_id,
     title,
     description,
     price,
@@ -54,11 +56,12 @@ async function readProduct(payload) {
     brand_id,
   } = payload;
 
-  const category_id = await convertCategoryId(category);
+  const resolved_category_id =
+    category_id ?? (category ? await convertCategoryId(category) : null);
   const resolved_brand_id = await convertBrandId(brand, brand_id);
 
   return {
-    category_id,
+    category_id: resolved_category_id,
     brand_id: resolved_brand_id,
     title,
     gender,
@@ -129,6 +132,59 @@ async function getProduct(product_id) {
   return { ...product, variants, galleries };
 }
 
+// NEW: GET /products/variants/:variant_id
+async function getVariant(variant_id) {
+  const row = await knex("product_variants as v")
+    .leftJoin("products as p", "v.product_id", "p.product_id")
+    .select(
+      "v.variant_id",
+      "v.product_id",
+      "v.size",
+      "v.color",
+      "v.sku",
+      "v.price",
+      "v.stock",
+      "p.title as product_title",
+      "p.thumbnail as product_thumbnail"
+    )
+    .where("v.variant_id", variant_id)
+    .first();
+  return row || null;
+}
+
+// GET: /products/variants/:variant_id/details
+async function getProductsByVariantId(variant_id) {
+  const variant = await knex("product_variants")
+    .select(
+      "variant_id",
+      "product_id",
+      "size",
+      "color",
+      "sku",
+      "price",
+      "stock"
+    )
+    .where({ variant_id })
+    .first();
+  if (!variant) return null;
+
+  const productPromise = productWithCategoryBrand()
+    .where("p.product_id", variant.product_id)
+    .first();
+  const galleriesPromise = knex("galleries")
+    .where({ product_id: variant.product_id })
+    .select("gallery_id", "product_id", "thumbnail");
+
+  const [product, galleries] = await Promise.all([
+    productPromise,
+    galleriesPromise,
+  ]);
+
+  if (!product) return null;
+
+  return { product, variant, galleries };
+}
+
 // POST: /products
 async function addProduct(payload) {
   const product = await readProduct(payload);
@@ -178,6 +234,33 @@ async function addVariant(product_id, payload) {
   return knex("product_variants").where({ variant_id }).first();
 }
 
+async function updateVariant(variant_id, payload = {}) {
+  const existing = await knex("product_variants").where({ variant_id }).first();
+  if (!existing) return null;
+
+  const update = {};
+  if (payload.size !== undefined) update.size = payload.size || null;
+  if (payload.color !== undefined) update.color = payload.color || null;
+  if (payload.sku !== undefined && payload.sku !== null) {
+    update.sku = payload.sku;
+  }
+  if (payload.price !== undefined) {
+    update.price =
+      payload.price === null || payload.price === ""
+        ? null
+        : Number(payload.price);
+  }
+  if (payload.stock !== undefined) {
+    update.stock = Number(payload.stock) || 0;
+  }
+
+  if (Object.keys(update).length === 0) return existing;
+
+  await knex("product_variants").where({ variant_id }).update(update);
+
+  return { ...existing, ...update };
+}
+
 async function deleteVariant(variant_id) {
   return knex("product_variants").where({ variant_id }).del();
 }
@@ -198,10 +281,13 @@ async function deleteGallery(gallery_id) {
 module.exports = {
   getManyProducts,
   getProduct,
+  getVariant, // <— export mới
+  getProductsByVariantId,
   addProduct,
   updateProduct,
   deleteProduct,
   addVariant,
+  updateVariant,
   deleteVariant,
   addGallery,
   deleteGallery,

@@ -180,6 +180,33 @@ module.exports.setup = (app) => {
    *       200: { $ref: '#/components/responses/200NoData' }
    *       404: { $ref: '#/components/responses/404NotFound' }
    */
+
+  /**
+   * @swagger
+   * /users/{user_id}/password:
+   *   patch:
+   *     summary: Change user password
+   *     tags: [Users]
+   *     parameters:
+   *       - $ref: '#/components/parameters/userIdParam'
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [current_password, new_password, confirm_password]
+   *             properties:
+   *               current_password: { type: string, format: password }
+   *               new_password:     { type: string, format: password, minLength: 6 }
+   *               confirm_password: { type: string, format: password }
+   *     responses:
+   *       200: { $ref: '#/components/responses/200NoData' }
+   *       400: { $ref: '#/components/responses/400BadRequest' }
+   *       404: { $ref: '#/components/responses/404NotFound' }
+   */
+
+  router.patch("/:user_id/password", usersController.changePassword);
   router.get("/:user_id", usersController.getUser);
   router.patch("/:user_id", avatarUpload, usersController.updateUser);
   router.delete("/:user_id", usersController.deleteUser);

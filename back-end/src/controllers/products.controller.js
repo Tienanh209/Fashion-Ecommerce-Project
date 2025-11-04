@@ -35,6 +35,45 @@ async function getProduct(req, res, next) {
   }
 }
 
+// NEW: GET /products/variants/:variant_id
+async function getVariant(req, res, next) {
+  const { variant_id } = req.params;
+  try {
+    const variant = await productsService.getVariant(variant_id);
+    if (!variant) return next(new ApiError(404, "Variant not found"));
+    return res.json(JSend.success(variant));
+  } catch (error) {
+    console.log(error);
+    return next(
+      new ApiError(500, `Error retrieving variant with id=${variant_id}`)
+    );
+  }
+}
+
+// GET: /products/variants/:variant_id/details
+async function getProductsByVariantId(req, res, next) {
+  const { variant_id } = req.params;
+  try {
+    const detail = await productsService.getProductsByVariantId(variant_id);
+    if (!detail) return next(new ApiError(404, "Variant not found"));
+    return res.json(
+      JSend.success({
+        product: detail.product,
+        variant: detail.variant,
+        galleries: detail.galleries,
+      })
+    );
+  } catch (error) {
+    console.log(error);
+    return next(
+      new ApiError(
+        500,
+        `Error retrieving product by variant_id=${variant_id}`
+      )
+    );
+  }
+}
+
 // POST: /products
 async function addProduct(req, res, next) {
   const title = req.body?.title;
@@ -109,7 +148,7 @@ async function addVariant(req, res, next) {
   }
 }
 
-// POST /products/variants/:variant_id
+// DELETE /products/variants/:variant_id
 async function deleteVariant(req, res, next) {
   const { variant_id } = req.params;
   try {
@@ -123,6 +162,23 @@ async function deleteVariant(req, res, next) {
         500,
         `Could not delete product's variant with id=${variant_id}`
       )
+    );
+  }
+}
+
+// PATCH /products/variants/:variant_id
+async function updateVariant(req, res, next) {
+  const { variant_id } = req.params;
+  try {
+    const updated = await productsService.updateVariant(variant_id, {
+      ...req.body,
+    });
+    if (!updated) return next(new ApiError(404, "Product variant not found"));
+    return res.json(JSend.success({ variant: updated }));
+  } catch (error) {
+    console.log(error);
+    return next(
+      new ApiError(500, `Error updating product variant with id=${variant_id}`)
     );
   }
 }
@@ -144,7 +200,7 @@ async function addGallery(req, res, next) {
   }
 }
 
-// POST /products/galleries/:gallery_id
+// DELETE /products/galleries/:gallery_id
 async function deleteGallery(req, res, next) {
   const { gallery_id } = req.params;
   try {
@@ -165,10 +221,13 @@ async function deleteGallery(req, res, next) {
 module.exports = {
   getProductsByFilter,
   getProduct,
+  getVariant,
+  getProductsByVariantId,
   addProduct,
   updateProduct,
   deleteProduct,
   addVariant,
+  updateVariant,
   deleteVariant,
   addGallery,
   deleteGallery,

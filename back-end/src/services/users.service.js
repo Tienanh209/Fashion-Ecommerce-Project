@@ -133,6 +133,24 @@ async function deleteUser(user_id) {
   return deleted > 0;
 }
 
+// PATCH /:user_id/password
+async function changePassword(user_id, { current_password, new_password }) {
+  const user = await knex("users").where({ user_id }).first();
+  if (!user) return { ok: false, code: 404, message: "User not found" };
+
+  const match = await bcrypt.compare(
+    String(current_password || ""),
+    user.password
+  );
+  if (!match)
+    return { ok: false, code: 400, message: "Current password is incorrect" };
+
+  const hashed = await bcrypt.hash(String(new_password), 10);
+  await knex("users").where({ user_id }).update({ password: hashed });
+
+  return { ok: true };
+}
+
 module.exports = {
   listUsers,
   getUser,
@@ -140,4 +158,5 @@ module.exports = {
   login,
   updateUser,
   deleteUser,
+  changePassword,
 };

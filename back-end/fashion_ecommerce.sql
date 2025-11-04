@@ -29,6 +29,8 @@ CREATE TABLE users (
 -- fullname: Apple, email: apple@gmail.com, pass: Apple123
 select * from users;
 
+update users set role_id  = 1 where email="tienanh@gmail.com";
+
 -- Categories
 CREATE TABLE categories (
   category_id INT AUTO_INCREMENT PRIMARY KEY,
