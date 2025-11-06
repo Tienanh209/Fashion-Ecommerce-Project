@@ -143,3 +143,12 @@ ALTER TABLE products
 INSERT INTO brands (name) VALUES ('Nike'),('Adidas'),('Uniqlo'),('Zara'),('H&M');
 
 select * from products;
+
+-- Virtual try-on history
+CREATE TABLE history_images (
+  history_id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  image_url VARCHAR(255) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_history_user FOREIGN KEY (user_id) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
