@@ -116,6 +116,7 @@ function UploadCard({ title, helperLink, onClick, preview }) {
     </div>
   );
 }
+// eslint-disable-next-line no-unused-vars
 function Pill({ icon: Icon, children, dark }) {
   return (
     <span
@@ -130,6 +131,7 @@ function Pill({ icon: Icon, children, dark }) {
   );
 }
 
+// eslint-disable-next-line no-unused-vars
 function SectionHeader({ icon: Icon, title }) {
   return (
     <div className="mb-4 flex items-center gap-3">
