@@ -25,5 +25,5 @@ export { default as SidebarFilters } from "./shop/SidebarFilters";
 export { default as NewArrivals } from "./shop/NewArrivals";
 export { default as BestSelling } from "./shop/BestSelling";
 export { default as SidebarTryon } from "./shop/SidebarTryon";
-
+export { default as SidebarHistory } from "./shop/SidebarHistory";
 

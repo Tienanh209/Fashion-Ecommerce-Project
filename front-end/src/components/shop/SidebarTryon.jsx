@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Image as ImageIcon, Handbag } from "lucide-react";
+import { Plus, Image as ImageIcon, Handbag, Sun, Clock3 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
 import { getCart } from "../../services/carts";
@@ -71,38 +71,31 @@ function slugify(value) {
 const TOP_CATEGORY_SLUGS = new Set(["t-shirts", "t-shirt", "shirts", "shirt", "jackets", "jacket", "hoodies", "sweaters", "tops", "coat"]);
 const BOTTOM_CATEGORY_SLUGS = new Set(["shorts", "short", "jeans", "denim", "pants", "trousers", "bottoms"]);
 const FALLBACK_IMAGE = "/images/image.png";
+const BACKGROUND_OPTIONS = [
+  { id: "beach", label: "Beach", image: "/background/beach.png" },
+  { id: "mountain", label: "Mountain", image: "/background/mountain.png" },
+  { id: "street", label: "Street", image: "/background/street.png" },
+  { id: "restaurant", label: "Restaurant", image: "/background/restaurant.png" },
+];
 
-function resolveDetailImage(detail, fallbackPath) {
-  const variant = detail?.variant || {};
-  const product = detail?.product || {};
-  const galleries = Array.isArray(detail?.galleries) ? detail.galleries : [];
-  const sources = [
-    variant.thumbnail,
-    product.thumbnail,
-    galleries[0]?.image_url,
-    fallbackPath,
-  ];
-  for (const src of sources) {
-    const url = imgUrl(src);
-    if (url) return url;
-  }
-  return FALLBACK_IMAGE;
+function resolveDetailImage(detail) {  
+  return (imgUrl(detail.product.thumbnail)) || FALLBACK_IMAGE;
 }
 
 function UploadCard({ title, helperLink, onClick, preview }) {
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
       <button
         type="button"
         onClick={onClick}
-        className="flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-neutral-300 px-5 py-10 text-neutral-600 hover:bg-neutral-50"
+        className="flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-neutral-300 p-2 text-neutral-600 hover:bg-neutral-50"
       >
         {preview ? (
-          <div className="flex flex-col items-center gap-2">
+          <div className="items-center">
             <img
               src={preview}
               alt="Selected model"
-              className="h-32 w-32 rounded-xl object-cover"
+              className="aspect-2/3 h-60 rounded-xl object-cover"
             />
             <span className="text-sm text-neutral-500">Change model</span>
           </div>
@@ -137,26 +130,213 @@ function Pill({ icon: Icon, children, dark }) {
   );
 }
 
-export default function SidebarTryon() {
+function SectionHeader({ icon: Icon, title }) {
+  return (
+    <div className="mb-4 flex items-center gap-3">
+      <span className="grid h-8 w-8 place-items-center rounded-full bg-neutral-900 text-white">
+        <Icon className="h-4 w-4" />
+      </span>
+      <h2 className="text-lg font-semibold text-neutral-900">{title}</h2>
+    </div>
+  );
+}
+
+function BackgroundCard({ option, selected, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "group flex flex-col items-center gap-2 rounded-2xl bg-white p-3 text-sm text-neutral-700 shadow-sm transition",
+        selected
+          ? "border-2 border-neutral-900 ring-2 ring-neutral-900 ring-offset-2 ring-offset-neutral-100"
+          : "border border-transparent hover:border-neutral-200 hover:shadow-md",
+      ].join(" ")}
+    >
+      <div className="h-20 w-20 overflow-hidden rounded-xl">
+        <img
+          src={option.image}
+          alt={option.label}
+          className="h-full w-full object-cover transition group-hover:scale-105"
+        />
+      </div>
+      <span className="font-medium">{option.label}</span>
+    </button>
+  );
+}
+
+function BackgroundGrid({ options, selectedId, onSelect }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {options.map((option) => (
+        <BackgroundCard
+          key={option.id}
+          option={option}
+          selected={option.id === selectedId}
+          onClick={() => onSelect(option.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ClockPreview({ hour }) {
+  const normalizedHour = hour % 12;
+  const rotation = normalizedHour * 30;
+  const radius = 38;
+
+  return (
+    <div className="flex justify-center">
+      <div className="relative h-36 w-36 rounded-full border border-neutral-200 bg-white shadow-sm">
+        {[12, 3, 6, 9].map((num) => {
+          const angle = (num % 12) * 30 - 90;
+          const rad = (angle * Math.PI) / 180;
+          const x = 50 + Math.cos(rad) * radius;
+          const y = 50 + Math.sin(rad) * radius;
+          return (
+            <span
+              key={num}
+              className="absolute text-xs font-medium text-neutral-500"
+              style={{
+                left: `${x}%`,
+                top: `${y}%`,
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              {num === 0 ? 12 : num}
+            </span>
+          );
+        })}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div
+            className="h-12 w-0.5 origin-bottom rounded bg-neutral-900"
+            style={{ transform: `rotate(${rotation}deg)` }}
+          />
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="h-2.5 w-2.5 rounded-full bg-neutral-900" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimeSelector({ hour, onHourChange, isPm, onPeriodChange }) {
+  const hourDisplay = String(hour).padStart(2, "0");
+
+  return (
+    <div className="space-y-4 rounded-2xl bg-white p-5 shadow-sm">
+      <SectionHeader icon={Clock3} title="Enter time" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+          <button
+            type="button"
+            className="rounded-full bg-white px-2 py-1 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-100"
+            onClick={() => onHourChange(-1)}
+          >
+            -
+          </button>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-semibold text-neutral-900">
+              {hourDisplay}
+            </span>
+            <span className="text-xl font-medium text-neutral-500">:00</span>
+          </div>
+          <button
+            type="button"
+            className="rounded-full bg-white px-2 py-1 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-100"
+            onClick={() => onHourChange(1)}
+          >
+            +
+          </button>
+        </div>
+        <div className="flex overflow-hidden rounded-2xl border border-neutral-200 text-sm font-medium">
+          <button
+            type="button"
+            onClick={() => onPeriodChange(false)}
+            className={[
+              "px-4 py-2",
+              !isPm ? "bg-neutral-900 text-white" : "bg-white text-neutral-700",
+            ].join(" ")}
+          >
+            AM
+          </button>
+          <button
+            type="button"
+            onClick={() => onPeriodChange(true)}
+            className={[
+              "px-4 py-2",
+              isPm ? "bg-neutral-900 text-white" : "bg-white text-neutral-700",
+            ].join(" ")}
+          >
+            PM
+          </button>
+        </div>
+      </div>
+      <ClockPreview hour={hour} isPm={isPm} />
+    </div>
+  );
+}
+
+export default function SidebarTryon({
+  onGenerate,
+  generating = false,
+  submitError = "",
+}) {
   const [mixClothes, setMixClothes] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [formError, setFormError] = useState("");
   const [topItems, setTopItems] = useState([]);
   const [bottomItems, setBottomItems] = useState([]);
   const [modelPreview, setModelPreview] = useState("");
+  const [modelFile, setModelFile] = useState(null);
+  const [backgroundId, setBackgroundId] = useState(
+    BACKGROUND_OPTIONS[0]?.id || ""
+  );
+  const [hour, setHour] = useState(7);
+  const [isPm, setIsPm] = useState(false);
   const fileInputRef = useRef(null);
   const modelPreviewRef = useRef("");
   const { user, ready } = useAuth();
   const [selectedTopId, setSelectedTopId] = useState(null);
   const [selectedBottomId, setSelectedBottomId] = useState(null);
   const [selectedOnePieceId, setSelectedOnePieceId] = useState(null);
-  const combinedItems = useMemo(() => [...topItems, ...bottomItems], [topItems, bottomItems]);
+  const combinedItems = useMemo(
+    () => [...topItems, ...bottomItems],
+    [topItems, bottomItems]
+  );
+  const selectedTopItem = useMemo(
+    () => topItems.find((item) => item.id === selectedTopId) || null,
+    [topItems, selectedTopId]
+  );
+  const selectedBottomItem = useMemo(
+    () => bottomItems.find((item) => item.id === selectedBottomId) || null,
+    [bottomItems, selectedBottomId]
+  );
+  const selectedOnePieceItem = useMemo(
+    () =>
+      combinedItems.find((item) => item.id === selectedOnePieceId) || null,
+    [combinedItems, selectedOnePieceId]
+  );
+  const selectedBackground = useMemo(
+    () => BACKGROUND_OPTIONS.find((option) => option.id === backgroundId) || null,
+    [backgroundId]
+  );
+  const formattedTime = useMemo(
+    () => `${hour === 12 ? 12 : hour % 12 || 12} ${isPm ? "p.m" : "a.m"}`,
+    [hour, isPm]
+  );
+  const topScrollable = topItems.length > 4;
+  const bottomScrollable = bottomItems.length > 4;
+  const onePieceScrollable = combinedItems.length > 4;
 
   const cleanupPreview = () => {
     if (modelPreviewRef.current) {
       URL.revokeObjectURL(modelPreviewRef.current);
       modelPreviewRef.current = "";
     }
+    setModelFile(null);
   };
 
   const handleSelectModel = () => {
@@ -170,6 +350,45 @@ export default function SidebarTryon() {
     cleanupPreview();
     modelPreviewRef.current = url;
     setModelPreview(url);
+    setModelFile(file);
+    setFormError("");
+  };
+
+  const handleTryOn = () => {
+    if (!onGenerate) return;
+    if (!modelFile) {
+      setFormError("Please upload a human model image first.");
+      return;
+    }
+    if (!selectedBackground) {
+      setFormError("Please choose a background scene.");
+      return;
+    }
+    setFormError("");
+    if (mixClothes) {
+      if (!selectedTopItem || !selectedBottomItem) {
+        setFormError("Please select both a top and a bottom item.");
+        return;
+      }
+      onGenerate({
+        modelFile,
+        topImage: selectedTopItem.image,
+        bottomImage: selectedBottomItem.image,
+        background: selectedBackground.label,
+        time: formattedTime,
+      });
+    } else {
+      if (!selectedOnePieceItem?.image) {
+        setFormError("Please select an outfit to try on.");
+        return;
+      }
+      onGenerate({
+        modelFile,
+        garmentImage: selectedOnePieceItem.image,
+        background: selectedBackground.label,
+        time: formattedTime,
+      });
+    }
   };
 
   const loadCartItems = useCallback(
@@ -178,13 +397,15 @@ export default function SidebarTryon() {
       if (!uid) {
         setTopItems([]);
         setBottomItems([]);
-        setError("");
+        setLoadError("");
+        setFormError("");
         setLoading(false);
         return;
       }
       try {
         setLoading(true);
-        setError("");
+        setLoadError("");
+        setFormError("");
         const { items: rawItems = [] } = await getCart(uid);
         const baseItems = (rawItems || []).map(normalizeBaseItem).filter((item) => Number(item.variant_id));
         if (!baseItems.length) {
@@ -207,17 +428,15 @@ export default function SidebarTryon() {
 
         const nextTop = [];
         const nextBottom = [];
-
+        
         details.forEach((entry) => {
           if (!entry?.detail) return;
           const { detail } = entry;
+          console.log(detail);
+          
           const product = detail.product || {};
           const variant = detail.variant || {};
-          const categoryLabel =
-            product.category ||
-            product.category_name ||
-            variant.category ||
-            "";
+          const categoryLabel = product.category || "";
           const slug = slugify(categoryLabel);
 
           const item = {
@@ -240,7 +459,7 @@ export default function SidebarTryon() {
         setSelectedOnePieceId((prev) => (allItems.some((item) => item.id === prev) ? prev : null));
       } catch (e) {
         console.error("[SidebarTryon] load failed", e);
-        setError(e?.message || "Failed to load cart items.");
+        setLoadError(e?.message || "Failed to load cart items.");
         setTopItems([]);
         setBottomItems([]);
       } finally {
@@ -267,9 +486,24 @@ export default function SidebarTryon() {
   }, [ready, loadCartItems]);
 
   useEffect(() => () => cleanupPreview(), []);
-  
+
+  const handleHourChange = (delta) => {
+    setHour((prev) => {
+      let next = prev + delta;
+      if (next > 12) next = 1;
+      if (next < 1) next = 12;
+      return next;
+    });
+    setFormError("");
+  };
+
+  const handlePeriodChange = (nextIsPm) => {
+    setIsPm(nextIsPm);
+    setFormError("");
+  };
+
   return (
-    <div className="rounded-3xl bg-neutral-100 p-5 md:p-6">
+    <div className="rounded-3xl bg-neutral-100 p-5 md:p-6 space-y-6">
       <input
         ref={fileInputRef}
         type="file"
@@ -277,101 +511,175 @@ export default function SidebarTryon() {
         className="hidden"
         onChange={handleModelUpload}
       />
-      {/* header */}
-      <div className="mb-4 flex items-center gap-3">
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-neutral-900 text-white">
-          <Plus className="h-4 w-4" />
-        </span>
-        <h2 className="text-lg font-semibold text-neutral-900">Upload model&apos;s image</h2>
-      </div>
-
-      <div className="mb-6">
-        <UploadCard title="Select human model" helperLink="Model templates" onClick={handleSelectModel} preview={modelPreview} />
-      </div>
-
-      {/* Clothes section header */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-neutral-900 text-white">
-            <Handbag className="h-4 w-4" />
-          </span>
-          <h2 className="text-lg font-semibold text-neutral-900">Choose your clothes</h2>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        <div className="flex justify-start">
-          <Segmented
-            value={mixClothes}
-            onChange={setMixClothes}
-            options={[
-              {
-                value: true,
-                label: (
-                  <>
-                    <span>Mix Clothes</span>
-                  </>
-                ),
-              },
-              {
-                value: false,
-                label: (
-                  <>
-                    <span>One-piece</span>
-                  </>
-                ),
-              },
-            ]}
+      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,260px)]">
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <SectionHeader icon={Plus} title="Upload model's image" />
+          <UploadCard
+            title="Select human model"
+            helperLink="Model templates"
+            onClick={handleSelectModel}
+            preview={modelPreview}
           />
         </div>
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <SectionHeader icon={Sun} title="Choose background" />
+          <BackgroundGrid
+            options={BACKGROUND_OPTIONS}
+            selectedId={backgroundId}
+            onSelect={(id) => {
+              setBackgroundId(id);
+              setFormError("");
+            }}
+          />
+          <button
+            type="button"
+            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-neutral-500 hover:text-neutral-700"
+          >
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-neutral-100 text-xs font-semibold text-neutral-700">
+              +
+            </span>
+            Show more
+          </button>
+        </div>
+      </div>
 
-        {/* Items */}
-        {loading ? (
-          <div className="rounded-xl border border-dashed border-neutral-300 bg-white/60 p-6 text-center text-sm text-neutral-500">
-            Loading your closet…
-          </div>
-        ) : error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
-            {error}
-          </div>
-        ) : mixClothes ? (
-          <>
-            <div className="space-y-2">
-              <Pill icon={TopIcon} dark>Top</Pill>
-              <ItemsGrid
-                items={topItems}
-                emptyText="Add tops to your cart to see them here."
-                selectedId={selectedTopId}
-                onSelect={(id) =>
-                  setSelectedTopId((prev) => (prev === id ? null : id))
-                }
+      <div className="grid gap-6 md:grid-cols-[1.1fr_minmax(0,1fr)]">
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <SectionHeader icon={Handbag} title="Choose your clothes" />
+          <div className="space-y-6">
+            <div className="flex justify-start">
+              <Segmented
+                value={mixClothes}
+                onChange={(value) => {
+                  setMixClothes(value);
+                  setFormError("");
+                }}
+                options={[
+                  {
+                    value: true,
+                    label: (
+                      <>
+                        <span>Mix Clothes</span>
+                      </>
+                    ),
+                  },
+                  {
+                    value: false,
+                    label: (
+                      <>
+                        <span>One-piece</span>
+                      </>
+                    ),
+                  },
+                ]}
               />
             </div>
-            <div className="space-y-2">
-              <Pill icon={BottomIcon} dark>Bottom</Pill>
-              <ItemsGrid
-                items={bottomItems}
-                emptyText="Add jeans or shorts to your cart to mix outfits."
-                selectedId={selectedBottomId}
-                onSelect={(id) =>
-                  setSelectedBottomId((prev) => (prev === id ? null : id))
-                }
-              />
-            </div>
-          </>
-        ) : (
-          <div className="space-y-2">
-            <Pill icon={DressIcon} dark>One-piece</Pill>
-            <ItemsGrid
-              items={combinedItems}
-              emptyText="Add items to your cart to preview looks."
-              selectedId={selectedOnePieceId}
-              onSelect={(id) =>
-                setSelectedOnePieceId((prev) => (prev === id ? null : id))
-              }
-            />
+
+            {loading ? (
+              <div className="rounded-xl border border-dashed border-neutral-300 bg-white/60 p-6 text-center text-sm text-neutral-500">
+                Loading your closet…
+              </div>
+            ) : loadError ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+                {loadError}
+              </div>
+            ) : mixClothes ? (
+              <>
+                <div className="space-y-2">
+                  <Pill icon={TopIcon} dark>
+                    Top
+                  </Pill>
+                  <div
+                    className={
+                      topScrollable ? "max-h-60 overflow-y-auto pr-1" : ""
+                    }
+                  >
+                    <ItemsGrid
+                      items={topItems}
+                      emptyText="Add tops to your cart to see them here."
+                      selectedId={selectedTopId}
+                      onSelect={(id) => {
+                        setFormError("");
+                        setSelectedTopId((prev) => (prev === id ? null : id));
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Pill icon={BottomIcon} dark>
+                    Bottom
+                  </Pill>
+                  <div
+                    className={
+                      bottomScrollable ? "max-h-60 overflow-y-auto pr-1" : ""
+                    }
+                  >
+                    <ItemsGrid
+                      items={bottomItems}
+                      emptyText="Add jeans or shorts to your cart to mix outfits."
+                      selectedId={selectedBottomId}
+                      onSelect={(id) => {
+                        setFormError("");
+                        setSelectedBottomId((prev) => (prev === id ? null : id));
+                      }}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <Pill icon={DressIcon} dark>
+                  One-piece
+                </Pill>
+                <div
+                  className={
+                    onePieceScrollable ? "max-h-60 overflow-y-auto pr-1" : ""
+                  }
+                >
+                  <ItemsGrid
+                    items={combinedItems}
+                    emptyText="Add items to your cart to preview looks."
+                    selectedId={selectedOnePieceId}
+                    onSelect={(id) => {
+                      setFormError("");
+                      setSelectedOnePieceId((prev) => (prev === id ? null : id));
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
+        <TimeSelector
+          hour={hour}
+          onHourChange={handleHourChange}
+          isPm={isPm}
+          onPeriodChange={handlePeriodChange}
+        />
+      </div>
+
+      <div className="space-y-3">
+        {formError ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+            {formError}
+          </div>
+        ) : null}
+        {submitError && !formError ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+            {submitError}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={handleTryOn}
+          disabled={generating}
+          className={[
+            "w-full rounded-2xl bg-neutral-900 px-6 py-3 text-base font-semibold text-white transition",
+            generating ? "cursor-not-allowed opacity-70" : "hover:bg-neutral-800",
+          ].join(" ")}
+        >
+          {generating ? "Generating look…" : "Generate virtual try-on"}
+        </button>
       </div>
     </div>
   );
@@ -387,7 +695,9 @@ function ItemsGrid({ items, emptyText, selectedId, onSelect }) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div
+      className={"grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-3"}
+    >
       {items.map((item) => (
         <ImageCard
           key={item.id}
