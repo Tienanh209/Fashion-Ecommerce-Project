@@ -5,9 +5,11 @@ import { Outlet } from "react-router";
 function AdminLayout() {
     return <>
         <div className="flex min-h-screen bg-neutral-50">
-            <aside className="hidden md:block">
+            <div>
+            <aside className="hidden md:block sticky top-0">
                 <Sidebar/>
             </aside>
+            </div>
             <div className="flex flex-1 flex-col">
                 <div className="sticky top-0 z-20">
                     <DashboardHeader/>

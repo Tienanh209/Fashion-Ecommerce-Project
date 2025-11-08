@@ -151,7 +151,7 @@ function BackgroundCard({ option, selected, onClick }) {
       className={[
         "group flex flex-col items-center gap-2 rounded-2xl bg-white p-3 text-sm text-neutral-700 shadow-sm transition",
         selected
-          ? "border-2 border-neutral-900 ring-2 ring-neutral-900 ring-offset-2 ring-offset-neutral-100"
+          ? "border-2 border-neutral-900 ring-neutral-900 ring-offset-2 ring-offset-neutral-100"
           : "border border-transparent hover:border-neutral-200 hover:shadow-md",
       ].join(" ")}
     >
@@ -209,7 +209,7 @@ function ClockPreview({ hour }) {
             </span>
           );
         })}
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="relative top-6 flex items-center justify-center">
           <div
             className="h-12 w-0.5 origin-bottom rounded bg-neutral-900"
             style={{ transform: `rotate(${rotation}deg)` }}
@@ -229,8 +229,8 @@ function TimeSelector({ hour, onHourChange, isPm, onPeriodChange }) {
   return (
     <div className="space-y-4 rounded-2xl bg-white p-5 shadow-sm">
       <SectionHeader icon={Clock3} title="Enter time" />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex m-auto gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3">
           <button
             type="button"
             className="rounded-full bg-white px-2 py-1 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-100"
@@ -252,13 +252,13 @@ function TimeSelector({ hour, onHourChange, isPm, onPeriodChange }) {
             +
           </button>
         </div>
-        <div className="flex overflow-hidden rounded-2xl border border-neutral-200 text-sm font-medium">
+        <div className="flex m-auto border border-neutral-200 rounded-2xl text-sm font-medium">
           <button
             type="button"
             onClick={() => onPeriodChange(false)}
             className={[
               "px-4 py-2",
-              !isPm ? "bg-neutral-900 text-white" : "bg-white text-neutral-700",
+              !isPm ? "bg-neutral-900 text-white rounded-2xl" : "bg-white text-neutral-700",
             ].join(" ")}
           >
             AM
@@ -268,7 +268,7 @@ function TimeSelector({ hour, onHourChange, isPm, onPeriodChange }) {
             onClick={() => onPeriodChange(true)}
             className={[
               "px-4 py-2",
-              isPm ? "bg-neutral-900 text-white" : "bg-white text-neutral-700",
+              isPm ? "bg-neutral-900 text-white rounded-2xl" : "bg-white text-neutral-700",
             ].join(" ")}
           >
             PM
@@ -698,7 +698,7 @@ function ItemsGrid({ items, emptyText, selectedId, onSelect }) {
 
   return (
     <div
-      className={"grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-3"}
+      className={"grid grid-cols-3 gap-x-20 gap-y-5 overflow-x-auto"}
     >
       {items.map((item) => (
         <ImageCard
@@ -719,7 +719,7 @@ function ImageCard({ image, selected, onClick }) {
       type="button"
       onClick={onClick}
       className={[
-        "group inline-flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm transition hover:shadow-md",
+        "group inline-flex h-20 w-20 items-center justify-center rounded-xl border bg-white shadow-sm transition hover:shadow-md",
         selected
           ? "border-neutral-900 ring-2 ring-neutral-900"
           : "border-neutral-200",

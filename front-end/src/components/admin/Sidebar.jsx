@@ -31,7 +31,7 @@ export default function Sidebar() {
           </div>
           <div className="leading-tight">
             <div className="text-lg font-bold tracking-wide text-neutral-50">
-              TA.<span className="text-gray-400">SHOP</span>
+              TA.<span className="text-gray-400">LAB</span>
             </div>
             <div className="text-xs text-neutral-400">Admin</div>
           </div>

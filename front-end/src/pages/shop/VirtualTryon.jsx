@@ -233,7 +233,7 @@ function VirtualTryon() {
           )}
         </div>
       </section>
-      <aside className="w-full xl:w-64">
+      <aside className="xl:w-64 xl:h-250">
         <SidebarHistory
           items={historyItems}
           loading={historyLoading}

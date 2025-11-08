@@ -127,7 +127,7 @@ export default function Header() {
           className="font-extrabold text-3xl tracking-tight cursor-pointer"
           onClick={() => navigate("/")}
         >
-          TA.<span className="text-gray-400">SHOP</span>
+          TA.<span className="text-gray-400">LAB</span>
         </div>
 
         <nav className="hidden md:flex items-center gap-8 text-[18px] font-medium text-gray-700">

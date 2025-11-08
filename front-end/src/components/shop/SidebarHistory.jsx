@@ -60,7 +60,8 @@ function SidebarHistory({ items, loading, onFetch, onSelect }) {
   }, [onFetch]);
 
   return (
-    <aside className="flex h-full w-full flex-col gap-4 rounded-3xl bg-neutral-100 p-5 md:w-64">
+    <aside
+      className="flex h-full w-full flex-col gap-4 rounded-3xl bg-neutral-100 p-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="grid h-9 w-9 place-items-center rounded-full bg-neutral-900 text-white">
