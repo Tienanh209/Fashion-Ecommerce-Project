@@ -13,6 +13,7 @@ function productWithCategoryBrand() {
       "p.title",
       "p.gender",
       "p.description",
+      "p.material",
       "p.price",
       "p.discount",
       "p.thumbnail",
@@ -48,6 +49,7 @@ async function readProduct(payload) {
     category_id,
     title,
     description,
+    material,
     price,
     discount = 0,
     thumbnail = null,
@@ -59,8 +61,14 @@ async function readProduct(payload) {
   const resolved_category_id =
     category_id ?? (category ? await convertCategoryId(category) : null);
   const resolved_brand_id = await convertBrandId(brand, brand_id);
+  const cleanedMaterial =
+    material === undefined
+      ? undefined
+      : material === null
+      ? null
+      : String(material).trim();
 
-  return {
+  const result = {
     category_id: resolved_category_id,
     brand_id: resolved_brand_id,
     title,
@@ -70,6 +78,12 @@ async function readProduct(payload) {
     discount,
     thumbnail,
   };
+
+  if (cleanedMaterial !== undefined) {
+    result.material = cleanedMaterial || null;
+  }
+
+  return result;
 }
 
 // GET: /products
@@ -99,7 +113,11 @@ async function getManyProducts(query) {
     .offset(paginator.offset);
 
   const totalRecords = results[0] ? Number(results[0].recordCount) : 0;
-  for (const r of results) delete r.recordCount;
+  results = results.map((row) => {
+    const cloned = { ...row };
+    delete cloned.recordCount;
+    return cloned;
+  });
 
   return {
     metadata: paginator.getMetadata(totalRecords),

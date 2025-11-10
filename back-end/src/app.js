@@ -16,6 +16,7 @@ const reviewsRouter = require("./routes/reviews.router");
 const brandsRouter = require("./routes/brands.router");
 const virtualTryonRouter = require("./routes/virtual-tryon.router");
 const historyRouter = require("./routes/history.router");
+const favoritesRouter = require("./routes/favorites.router");
 
 const JSend = require("./jsend");
 const app = express();
@@ -40,6 +41,7 @@ ordersRouter.setup(app);
 reviewsRouter.setup(app);
 virtualTryonRouter.setup(app);
 historyRouter.setup(app);
+favoritesRouter.setup(app);
 
 app.use(resourceNotFound);
 

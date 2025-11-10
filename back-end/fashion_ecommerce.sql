@@ -47,6 +47,7 @@ CREATE TABLE products (
   price INT NOT NULL,
   discount INT DEFAULT 0,
   description TEXT,
+  material VARCHAR(255) NULL,
   thumbnail VARCHAR(255),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -139,10 +140,21 @@ ALTER TABLE products
   ADD COLUMN brand_id INT NULL AFTER category_id,
   ADD COLUMN gender ENUM('male','female','unisex') NOT NULL DEFAULT 'unisex' AFTER title,
   ADD CONSTRAINT fk_products_brand FOREIGN KEY (brand_id) REFERENCES brands(brand_id);
-  
-INSERT INTO brands (name) VALUES ('Nike'),('Adidas'),('Uniqlo'),('Zara'),('H&M');
 
 select * from products;
+
+INSERT INTO brands (name) VALUES ('Nike'),('Adidas'),('Uniqlo'),('Zara'),('H&M');
+
+-- Favorites
+CREATE TABLE favorites (
+  favorite_id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  product_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_favorites_user_product (user_id, product_id),
+  CONSTRAINT fk_favorites_user FOREIGN KEY (user_id) REFERENCES users(user_id),
+  CONSTRAINT fk_favorites_product FOREIGN KEY (product_id) REFERENCES products(product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Virtual try-on history
 CREATE TABLE history_images (
