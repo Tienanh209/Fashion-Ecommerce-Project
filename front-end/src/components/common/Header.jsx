@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from "react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
+import { useFavorites } from "../../contexts/FavoritesContext";
 import { imgUrl } from "../../utils/image";
 import { getCart } from "../../services/carts";
 
@@ -51,6 +52,7 @@ function getUserInitials(info) {
 export default function Header() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { count: favoriteCount } = useFavorites();
 
   const [term, setTerm] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -262,6 +264,36 @@ export default function Header() {
               </div>
             )}
           </div>
+
+          {/* Favorites */}
+          <button
+            aria-label="Wishlists"
+            onClick={() => {
+              if (user) navigate("/wishlists");
+              else navigate(`/login?redirect=${encodeURIComponent("/wishlists")}`);
+            }}
+            className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="25"
+              height="25"
+              viewBox="0 0 24 24"
+              fill={favoriteCount ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={favoriteCount ? "text-red-500" : "text-gray-800"}
+            >
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+            {user && favoriteCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] leading-[18px] text-center">
+                {favoriteCount > 99 ? "99+" : favoriteCount}
+              </span>
+            )}
+          </button>
 
           {/* Cart */}
           <button

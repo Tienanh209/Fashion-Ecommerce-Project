@@ -17,6 +17,7 @@ import {
   Login,
   Register,
   Profile,
+  Wishlists,
   Customers,
   OrdersManagement,
   Inventory,
@@ -77,9 +78,10 @@ export default function AppRoutes() {
         {/* Private */}
         <Route element={<RequireAuth />}>
           <Route element={<CustomerLayout/>}>
-            <Route path="/account" element={<Profile />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/orders" element={<Orders />} />
+          <Route path="/account" element={<Profile />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/wishlists" element={<Wishlists />} />
+          <Route path="/orders" element={<Orders />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
           </Route>
         </Route>

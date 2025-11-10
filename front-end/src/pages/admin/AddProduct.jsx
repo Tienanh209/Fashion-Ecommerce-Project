@@ -72,6 +72,15 @@ const COLOR_OPTIONS = [
 const CSV_INSTRUCTIONS =
   "Expected CSV header: sku,size,color,stock,price. Existing SKUs will be replaced.";
 
+const MATERIAL_OPTIONS = [
+  "Cotton",
+  "Spandex",
+  "Silk",
+  "Wool",
+  "Denim",
+  "Leather",
+];
+
 function getSizeOptions(categoryName = "") {
   const slug = categoryName.toLowerCase();
   const matchesNumeric = NUMERIC_SIZE_CATEGORIES.some((keyword) =>
@@ -105,6 +114,7 @@ const initialForm = {
   brand: "",
   price: 0,
   discount: 0,
+  material: "",
 };
 
 const initialVariantForm = {
@@ -260,6 +270,7 @@ export default function AddProduct() {
           brand: detail.brand || "",
           price: Number(detail.price || 0),
           discount: Number(detail.discount || 0),
+          material: detail.material || "",
         });
         setThumbnailFile(null);
         setThumbnailUrl(detail.thumbnail || "");
@@ -472,6 +483,7 @@ export default function AddProduct() {
       price: Number(form.price || 0),
       discount: Number(form.discount || 0),
       category_id: selectedCategory.category_id,
+      material: form.material || "",
     };
 
     if (brandId != null) payload.brand_id = brandId;
@@ -823,8 +835,10 @@ export default function AddProduct() {
             form={form}
             categories={categoryOptions}
             brands={brandOptions}
+            materialOptions={MATERIAL_OPTIONS}
             onTitleChange={handleInputChange("title")}
             onDescriptionChange={handleInputChange("description")}
+            onMaterialChange={handleInputChange("material")}
             onCategoryChange={handleInputChange("category_id")}
             onGenderChange={handleInputChange("gender")}
             onBrandChange={handleInputChange("brand")}

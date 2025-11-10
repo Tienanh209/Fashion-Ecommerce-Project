@@ -6,8 +6,10 @@ export default function ProductDetailsForm({
   form,
   categories = [],
   brands = [],
+  materialOptions = [],
   onTitleChange,
   onDescriptionChange,
+  onMaterialChange,
   onCategoryChange,
   onGenderChange,
   onBrandChange,
@@ -34,6 +36,21 @@ export default function ProductDetailsForm({
             placeholder="Detailed description..."
             className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
           />
+        </Field>
+
+        <Field label="Material">
+          <select
+            value={form.material || ""}
+            onChange={onMaterialChange}
+            className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-300"
+          >
+            <option value="">Choose material</option>
+            {materialOptions.map((material) => (
+              <option key={material} value={material}>
+                {material}
+              </option>
+            ))}
+          </select>
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">

@@ -20,6 +20,7 @@ export { default as Register } from "./auth/Register";
 
 // Account
 export { default as Profile } from "./account/Profile";
+export { default as Wishlists } from "./account/Wishlists";
 
 // Admin
 export { default as Dashboard } from "./admin/Dashboard";
