@@ -157,12 +157,39 @@ export async function addVariant(product_id, payload = {}) {
       payload.price !== undefined && payload.price !== null
         ? Number(payload.price)
         : null,
+    cost_price:
+      payload.cost_price !== undefined && payload.cost_price !== null
+        ? Number(payload.cost_price)
+        : null,
     stock:
       payload.stock !== undefined && payload.stock !== null
         ? Number(payload.stock)
         : 0,
   };
   return http.postJSON(`/products/${product_id}/variants`, body);
+}
+
+export async function importInventory(product_id, file) {
+  if (!product_id) {
+    throw new Error("product_id is required for inventory import");
+  }
+  if (!file) {
+    throw new Error("Inventory Excel file is required");
+  }
+  const form = new FormData();
+  form.append("inventoryFile", file);
+  const res = await http.postForm(`/products/${product_id}/import`, form);
+  return res?.import ?? res;
+}
+
+export async function importInventoryBulk(file) {
+  if (!file) {
+    throw new Error("Inventory Excel file is required");
+  }
+  const form = new FormData();
+  form.append("inventoryFile", file);
+  const res = await http.postForm("/products/import/bulk", form);
+  return res?.import ?? res;
 }
 
 export async function deleteVariant(variant_id) {
@@ -175,6 +202,7 @@ export async function updateVariant(variant_id, payload = {}) {
   if (payload.size !== undefined) body.size = payload.size;
   if (payload.color !== undefined) body.color = payload.color;
   if (payload.price !== undefined) body.price = payload.price;
+  if (payload.cost_price !== undefined) body.cost_price = payload.cost_price;
   if (payload.stock !== undefined) body.stock = payload.stock;
   return http.patchJSON(`/products/variants/${variant_id}`, body);
 }

@@ -3,6 +3,7 @@ const productsController = require("../controllers/products.controller");
 const { methodNotAllowed } = require("../controllers/errors.controller");
 const thumbnailUpload = require("../middlewares/thumbnail-upload.middleware");
 const router = express.Router();
+const inventoryUpload = require("../middlewares/inventory-upload.middleware");
 
 module.exports.setup = (app) => {
   app.use("/products", router);
@@ -18,6 +19,21 @@ module.exports.setup = (app) => {
   router.get("/", productsController.getProductsByFilter);
   router.post("/", thumbnailUpload, productsController.addProduct);
   router.all("/", methodNotAllowed);
+
+  // /products/:product_id/import
+  router.post(
+    "/:product_id/import",
+    inventoryUpload,
+    productsController.importInventory
+  );
+  router.all("/:product_id/import", methodNotAllowed);
+
+  router.post(
+    "/import/bulk",
+    inventoryUpload,
+    productsController.importInventoryBulk
+  );
+  router.all("/import/bulk", methodNotAllowed);
 
   // /products/:product_id
   router.get("/:product_id", productsController.getProduct);

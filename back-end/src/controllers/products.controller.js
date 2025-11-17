@@ -95,6 +95,61 @@ async function addProduct(req, res, next) {
   }
 }
 
+// POST /products/:product_id/import
+async function importInventory(req, res, next) {
+  const { product_id } = req.params;
+  if (!req.file || !req.file.buffer) {
+    return next(new ApiError(400, "Inventory Excel file is required."));
+  }
+
+  try {
+    const report = await productsService.importInventory(
+      Number(product_id),
+      req.file.buffer,
+      req.file.originalname
+    );
+    return res.status(201).json(JSend.success({ import: report }));
+  } catch (error) {
+    console.log(error);
+    if (error?.isInventoryImport) {
+      const status =
+        error.message === "Product not found."
+          ? 404
+          : error.message === "Product ID is required."
+          ? 400
+          : 400;
+      return next(new ApiError(status, error.message));
+    }
+    return next(
+      new ApiError(
+        500,
+        `Failed to import inventory for product_id=${product_id}`
+      )
+    );
+  }
+}
+
+// POST /products/import/bulk
+async function importInventoryBulk(req, res, next) {
+  if (!req.file || !req.file.buffer) {
+    return next(new ApiError(400, "Inventory Excel file is required."));
+  }
+
+  try {
+    const report = await productsService.importInventoryBulk(
+      req.file.buffer,
+      req.file.originalname
+    );
+    return res.status(201).json(JSend.success({ import: report }));
+  } catch (error) {
+    console.log(error);
+    if (error?.isInventoryImport) {
+      return next(new ApiError(400, error.message));
+    }
+    return next(new ApiError(500, "Failed to import inventory in bulk"));
+  }
+}
+
 // PUT: /products/:product_id
 async function updateProduct(req, res, next) {
   if (Object.keys(req.body).length === 0 && !req.file) {
@@ -224,6 +279,8 @@ module.exports = {
   getVariant,
   getProductsByVariantId,
   addProduct,
+  importInventory,
+  importInventoryBulk,
   updateProduct,
   deleteProduct,
   addVariant,

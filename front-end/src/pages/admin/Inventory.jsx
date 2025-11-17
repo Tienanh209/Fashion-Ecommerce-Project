@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Upload,
   Plus,
@@ -6,7 +6,12 @@ import {
   ChevronDown,
   AlertTriangle,
 } from "lucide-react";
-import { listProducts, getProduct } from "../../services/products";
+import { useNavigate } from "react-router";
+import {
+  listProducts,
+  getProduct,
+  importInventoryBulk,
+} from "../../services/products";
 
 const fmtVND = (n) =>
   new Intl.NumberFormat("vi-VN", {
@@ -82,6 +87,7 @@ const deriveRow = (product, detail) => {
 };
 
 export default function Inventory() {
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [metadata, setMetadata] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -90,6 +96,10 @@ export default function Inventory() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [availableCategories, setAvailableCategories] = useState([]);
+  const [reloadToken, setReloadToken] = useState(0);
+  const [importingStock, setImportingStock] = useState(false);
+  const [importMessage, setImportMessage] = useState({ ok: "", err: "" });
+  const importInputRef = useRef(null);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -160,7 +170,7 @@ export default function Inventory() {
     return () => {
       cancel = true;
     };
-  }, [category, debouncedSearch]);
+  }, [category, debouncedSearch, reloadToken]);
 
   const stats = useMemo(() => {
     const totalProducts = metadata?.totalRecords ?? items.length;
@@ -196,6 +206,71 @@ export default function Inventory() {
     return Array.from(new Set(base));
   }, [availableCategories]);
 
+  const handleAddProductClick = () => {
+    navigate("/admin/addproduct");
+  };
+
+  const handleImportButtonClick = () => {
+    if (importingStock) return;
+    setImportMessage({ ok: "", err: "" });
+    if (!items.length) {
+      setImportMessage({
+        ok: "",
+        err: "Không có sản phẩm nào để nhập kho. Vui lòng thêm sản phẩm trước.",
+      });
+      return;
+    }
+    if (importInputRef.current) {
+      importInputRef.current.value = "";
+      importInputRef.current.click();
+    }
+  };
+
+  const handleImportFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const isExcelFile =
+      /\.(xlsx|xls)$/i.test(file.name) ||
+      [
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+      ].includes(file.type);
+
+    if (!isExcelFile) {
+      setImportMessage({
+        ok: "",
+        err: "File không hợp lệ. Chỉ chấp nhận Excel (.xlsx hoặc .xls).",
+      });
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      setImportingStock(true);
+      setImportMessage({ ok: "", err: "" });
+      const report = await importInventoryBulk(file);
+      const processed = report?.processedProducts || 0;
+      const productMsg =
+        processed > 0
+          ? `${processed} sản phẩm đã được cập nhật.`
+          : "Không có sản phẩm nào được nhập.";
+      setImportMessage({
+        ok: `Nhập kho thành công. ${productMsg}`,
+        err: "",
+      });
+      setReloadToken((token) => token + 1);
+    } catch (e) {
+      console.error(e);
+      setImportMessage({
+        ok: "",
+        err: e?.message || "Không thể nhập kho. Vui lòng thử lại.",
+      });
+    } finally {
+      setImportingStock(false);
+      if (event.target) event.target.value = "";
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-64px)] w-full bg-neutral-50">
       <div className="mx-auto max-w-7xl px-6 py-6">
@@ -209,16 +284,46 @@ export default function Inventory() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button className="inline-flex items-center gap-2 rounded-md border border-neutral-300 bg-white px-3.5 py-2 text-sm text-neutral-800 hover:bg-neutral-50">
+            <button
+              className="inline-flex items-center gap-2 rounded-md border border-neutral-300 bg-white px-3.5 py-2 text-sm text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+              onClick={handleImportButtonClick}
+              disabled={importingStock}
+            >
               <Upload className="h-4 w-4" />
-              Import Stock
+              {importingStock ? "Importing..." : "Import Stock"}
             </button>
-            <button className="inline-flex items-center gap-2 rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90">
+            <button
+              className="inline-flex items-center gap-2 rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90"
+              onClick={handleAddProductClick}
+            >
               <Plus className="h-4 w-4" />
               Add Product
             </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleImportFileChange}
+            />
           </div>
         </div>
+        <p className="mb-4 text-xs text-neutral-500">
+          Excel import template must include columns: product_id, SKU, Size, Color,
+          Cost Price, Selling Price, Import Inventory (Qty).
+        </p>
+
+        {importMessage.err ? (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {importMessage.err}
+          </div>
+        ) : null}
+
+        {importMessage.ok ? (
+          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {importMessage.ok}
+          </div>
+        ) : null}
 
         <div className="mb-4 rounded-xl border border-neutral-200 bg-white shadow-sm">
           <div className="flex items-start gap-3 px-5 py-4">

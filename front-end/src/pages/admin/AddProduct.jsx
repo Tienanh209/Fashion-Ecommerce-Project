@@ -11,6 +11,7 @@ import {
   deleteVariant as apiDeleteVariant,
   addGallery as apiAddGallery,
   deleteGallery as apiDeleteGallery,
+  importInventory as apiImportInventory,
 } from "../../services/products";
 import { listCategories } from "../../services/categories";
 import { listBrands } from "../../services/brands";
@@ -69,8 +70,8 @@ const COLOR_OPTIONS = [
   "Cream",
 ];
 
-const CSV_INSTRUCTIONS =
-  "Expected CSV header: sku,size,color,stock,price. Existing SKUs will be replaced.";
+const IMPORT_INSTRUCTIONS =
+  "Upload the Excel template (.xlsx) with columns: product_id, SKU, Size, Color, Cost Price, Selling Price, Import Inventory (Qty). Quantities will be matched by product_id and added to existing stock.";
 
 const MATERIAL_OPTIONS = [
   "Cotton",
@@ -652,85 +653,26 @@ export default function AddProduct() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const text = await file.text();
-    const lines = text.split(/\r?\n/).map((line) => line.trim());
-    if (lines.length <= 1) {
-      setMessage({ ok: "", err: "CSV file is empty." });
-      event.target.value = "";
-      return;
-    }
+    const isExcelFile =
+      /\.(xlsx|xls)$/i.test(file.name) ||
+      [
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+      ].includes(file.type);
 
-    const headers = lines[0]
-      .split(",")
-      .map((header) => header.trim().toLowerCase());
-
-    const idx = {
-      sku: headers.indexOf("sku"),
-      size: headers.indexOf("size"),
-      color: headers.indexOf("color"),
-      stock: headers.indexOf("stock"),
-      price: headers.indexOf("price"),
-    };
-
-    if (idx.sku === -1) {
-      setMessage({ ok: "", err: "CSV must include a 'sku' column." });
-      event.target.value = "";
-      return;
-    }
-
-    const updates = [];
-    for (let i = 1; i < lines.length; i += 1) {
-      const line = lines[i];
-      if (!line) continue;
-      const cells = line.split(",").map((cell) => cell.trim());
-      const sku = cells[idx.sku];
-      if (!sku) continue;
-      updates.push({
-        sku,
-        size: idx.size !== -1 ? cells[idx.size] : "",
-        color: idx.color !== -1 ? cells[idx.color] : "",
-        stock: idx.stock !== -1 ? cells[idx.stock] : "",
-        price: idx.price !== -1 ? cells[idx.price] : "",
+    if (!isExcelFile) {
+      setMessage({
+        ok: "",
+        err: "Unsupported file type. Please upload an Excel (.xlsx) file.",
       });
-    }
-
-    if (!updates.length) {
-      setMessage({ ok: "", err: "No valid rows detected in CSV." });
       event.target.value = "";
       return;
     }
 
     try {
       setImportingStock(true);
-      for (const row of updates) {
-        const existing = variants.find(
-          (variant) => String(variant.sku).toLowerCase() === row.sku.toLowerCase()
-        );
-
-        if (existing) {
-          await apiUpdateVariant(existing.variant_id, {
-            size: row.size || existing.size || null,
-            color: row.color || existing.color || null,
-            stock:
-              row.stock === "" || row.stock === undefined
-                ? existing.stock
-                : Number(row.stock),
-            price:
-              row.price === "" || row.price === undefined
-                ? existing.price
-                : Number(row.price),
-          });
-        } else {
-          await apiAddVariant(productId, {
-            sku: row.sku,
-            size: row.size || null,
-            color: row.color || null,
-            stock: row.stock === "" ? 0 : Number(row.stock || 0),
-            price: row.price === "" ? null : Number(row.price || 0),
-          });
-        }
-      }
-      setMessage({ ok: "Stock import completed.", err: "" });
+      await apiImportInventory(productId, file);
+      setMessage({ ok: "Inventory import completed.", err: "" });
       await loadProductDetail(productId);
     } catch (error) {
       console.error(error);
@@ -878,7 +820,7 @@ export default function AddProduct() {
             <SummaryStats stats={stats} />
 
             <StockImportCard
-              instructions={CSV_INSTRUCTIONS}
+              instructions={IMPORT_INSTRUCTIONS}
               importing={importingStock}
               onImport={handleImportStock}
             />

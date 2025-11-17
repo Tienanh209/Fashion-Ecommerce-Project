@@ -61,12 +61,16 @@ CREATE TABLE product_variants (
   size VARCHAR(20),
   color VARCHAR(50),
   sku VARCHAR(64) UNIQUE,
+  cost_price INT NULL,
   price INT NULL,
   stock INT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_variants_product FOREIGN KEY (product_id) REFERENCES products(product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE product_variants
+  ADD COLUMN cost_price INT NULL AFTER sku;
 
 -- Galleries
 CREATE TABLE galleries (
@@ -163,4 +167,21 @@ CREATE TABLE history_images (
   image_url VARCHAR(255) NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_history_user FOREIGN KEY (user_id) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Inventory import logs
+CREATE TABLE inventory_imports (
+  import_id INT AUTO_INCREMENT PRIMARY KEY,
+  product_id INT NOT NULL,
+  variant_id INT NOT NULL,
+  sku VARCHAR(64) NOT NULL,
+  size VARCHAR(20),
+  color VARCHAR(50),
+  quantity INT NOT NULL CHECK (quantity > 0),
+  cost_price INT NULL,
+  selling_price INT NULL,
+  source_file VARCHAR(255),
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_inventory_import_product FOREIGN KEY (product_id) REFERENCES products(product_id),
+  CONSTRAINT fk_inventory_import_variant FOREIGN KEY (variant_id) REFERENCES product_variants(variant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
