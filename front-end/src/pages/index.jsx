@@ -30,3 +30,4 @@ export { default as Inventory } from "./admin/Inventory";
 export { default as Analytics } from "./admin/Analytics";
 export { default as Settings } from "./admin/Settings";
 export { default as AddProduct } from "./admin/AddProduct";
+export { default as Sales } from "./admin/Sales";

@@ -1,15 +1,36 @@
 const knex = require("../database/knex");
 
+async function getActiveSaleDiscount(product_id, trx = knex) {
+  const row = await trx("sale_details as sd")
+    .join("sales as s", "sd.sale_id", "s.sale_id")
+    .where("sd.product_id", product_id)
+    .where("s.start_date", "<=", trx.fn.now())
+    .where("s.end_date", ">=", trx.fn.now())
+    .max({ discount: "s.discount" })
+    .first();
+  const value = Number(row?.discount);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
 async function computeSnapshotPrice(variant_id, trx = knex) {
   const row = await trx("product_variants as v")
     .join("products as p", "v.product_id", "p.product_id")
     .where("v.variant_id", variant_id)
-    .select("v.price as variant_price", "p.price as product_price")
+    .select("v.price as variant_price", "p.price as product_price", "p.product_id")
     .first();
   if (!row) return null;
-  const price =
+
+  const basePrice =
     row.variant_price != null ? row.variant_price : row.product_price;
-  return Math.round(Number(price));
+  const saleDiscount = await getActiveSaleDiscount(row.product_id, trx);
+  const finalPrice =
+    saleDiscount > 0
+      ? Math.max(
+          0,
+          Math.round(Number(basePrice) - (Number(basePrice) * saleDiscount) / 100)
+        )
+      : Math.round(Number(basePrice));
+  return finalPrice;
 }
 
 // GET /carts/:user_id

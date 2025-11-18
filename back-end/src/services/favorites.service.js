@@ -1,4 +1,5 @@
 const knex = require("../database/knex");
+const { ACTIVE_SALE_DISCOUNT } = require("./products.service");
 
 function favoritesWithProduct() {
   return knex("favorites as f")
@@ -13,7 +14,10 @@ function favoritesWithProduct() {
       "p.title",
       "p.thumbnail",
       "p.price",
-      "p.discount",
+      knex.raw(`${ACTIVE_SALE_DISCOUNT} AS discount`),
+      knex.raw(
+        `p.price - FLOOR(p.price * (${ACTIVE_SALE_DISCOUNT}) / 100) AS final_price`
+      ),
       "p.gender",
       "p.material",
       "p.description",

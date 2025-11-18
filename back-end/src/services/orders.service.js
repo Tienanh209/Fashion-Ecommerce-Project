@@ -1,6 +1,7 @@
 // services/orders.service.js
 const knex = require("../database/knex");
 const Paginator = require("./paginator");
+const { ACTIVE_SALE_DISCOUNT } = require("./products.service");
 
 const ORDER_STATUS = ["pending", "paid", "shipped", "completed", "cancelled"];
 
@@ -37,7 +38,7 @@ async function getOrderItems(order_id, trx = knex) {
       "v.color",
       "v.sku",
       "p.price as product_price",
-      "p.discount as product_discount",
+      knex.raw(`${ACTIVE_SALE_DISCOUNT} AS product_discount`),
       "p.title as product_title",
       "p.thumbnail as product_thumbnail",
       "p.category_id",

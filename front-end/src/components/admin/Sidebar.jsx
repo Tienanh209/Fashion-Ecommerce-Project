@@ -7,6 +7,7 @@ import {
   BarChart2,
   Settings as SettingsIcon,
   Store,
+  Tags,
 } from "lucide-react";
 import { NavLink } from "react-router";
 
@@ -15,6 +16,7 @@ const nav = [
   { key: "order-management", label: "Order Management", icon: ClipboardList, to: "/admin/orders" },
   { key: "inventory", label: "Inventory", icon: Boxes, to: "/admin/inventory" },
   { key: "add-product", label: "Add Product", icon: SquarePlus, to: "/admin/addproduct" },
+  { key: "sales", label: "Sales", icon: Tags, to: "/admin/sales" },
   { key: "customers", label: "Customers", icon: Users, to: "/admin/customers" },
   { key: "analytics", label: "Analytics", icon: BarChart2, to: "/admin/analytics" },
   { key: "settings", label: "Settings", icon: SettingsIcon, to: "/admin/settings" },

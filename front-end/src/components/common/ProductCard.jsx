@@ -17,8 +17,12 @@ export default function ProductCard({ p }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
-  const finalPrice = p.price - Math.floor((p.price * (p.discount || 0)) / 100);
-  const hasDiscount = (p.discount || 0) > 0;
+  const saleDiscount = Number(p.discount || 0);
+  const finalPrice =
+    p.final_price != null
+      ? Number(p.final_price)
+      : Math.max(0, p.price - Math.floor((p.price * saleDiscount) / 100));
+  const hasDiscount = saleDiscount > 0;
   const liked = isFavorite?.(p.product_id);
 
   const handleFavorite = async (event) => {

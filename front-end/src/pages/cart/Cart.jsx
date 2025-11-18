@@ -20,6 +20,7 @@ function normalizeBaseItem(it) {
     variant_id: it.variant_id,
     quantity: Number(it.quantity || 0),
     price_snapshot: Number(it.price_snapshot ?? it.price ?? 0),
+    original_price: Number(it.original_price ?? it.base_price ?? it.price ?? 0),
   };
 }
 
@@ -131,6 +132,21 @@ export default function Cart() {
             const normalizedStock =
               Number.isFinite(parsedStock) && parsedStock >= 0 ? parsedStock : null;
 
+            const basePrice = Number(
+              variant.price ?? product.price ?? item.original_price ?? item.price_snapshot ?? 0
+            );
+            const finalPrice =
+              product.final_price != null
+                ? Number(product.final_price)
+                : Math.max(
+                    0,
+                    basePrice - Math.floor((basePrice * Number(product.discount || 0)) / 100)
+                  );
+            const pctOff =
+              basePrice > 0 && finalPrice < basePrice
+                ? Math.max(0, Math.round(((basePrice - finalPrice) / basePrice) * 100))
+                : 0;
+
             const thumbCandidate =
               variant.thumbnail ||
               product.thumbnail ||
@@ -139,6 +155,10 @@ export default function Cart() {
 
             return {
               ...item,
+              price_snapshot:
+                item.price_snapshot != null ? Number(item.price_snapshot) : Number(finalPrice),
+              original_price: basePrice,
+              _discount_pct: pctOff,
               _title: product.title || variant.title || "Product",
               _thumb: imgUrl(thumbCandidate || "/images/image.png"),
               _size: variant.size || "",
@@ -421,8 +441,34 @@ export default function Cart() {
                         Size: <b>{it._size || "-"}</b> &nbsp; Color:{" "}
                         <b>{it._color || "-"}</b>
                       </div>
-                      <div className="mt-1 font-bold">
-                        {Number(it.price_snapshot || 0).toLocaleString()}₫
+                      <div className="mt-1 flex items-baseline gap-2">
+                        <span className="font-bold text-lg">
+                          {Number(it.price_snapshot || 0).toLocaleString()}₫
+                        </span>
+                        {Number(it.original_price || 0) > Number(it.price_snapshot || 0) ? (
+                          <>
+                            <span className="text-xs line-through text-gray-500">
+                              {Number(it.original_price || 0).toLocaleString()}₫
+                            </span>
+                            <span className="text-xs font-semibold text-red-500">
+                              {(() => {
+                                const pct =
+                                  Number.isFinite(Number(it._discount_pct))
+                                    ? Number(it._discount_pct)
+                                    : (() => {
+                                        const original = Number(it.original_price || 0);
+                                        const sale = Number(it.price_snapshot || 0);
+                                        if (!Number.isFinite(original) || original <= 0) return null;
+                                        return Math.max(
+                                          0,
+                                          Math.round(((original - sale) / original) * 100)
+                                        );
+                                      })();
+                                return pct ? `-${pct}%` : "";
+                              })()}
+                            </span>
+                          </>
+                        ) : null}
                       </div>
                       {hasStockLimit && parsedStock > 0 && (
                         <div className="mt-1 text-xs text-gray-500">

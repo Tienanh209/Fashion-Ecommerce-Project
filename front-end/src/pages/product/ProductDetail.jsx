@@ -166,7 +166,12 @@ export default function ProductDetail() {
 
   const finalPrice = useMemo(() => {
     if (!product) return 0;
-    return product.price - Math.floor((product.price * (product.discount || 0)) / 100);
+    const saleDiscount = Number(product.discount || 0);
+    if (product.final_price != null) return Number(product.final_price);
+    return Math.max(
+      0,
+      product.price - Math.floor((product.price * saleDiscount) / 100)
+    );
   }, [product]);
 
   const variants = product?.variants || [];
@@ -336,7 +341,7 @@ export default function ProductDetail() {
 
             <div className="mt-4 flex items-end gap-3">
               <div className="text-3xl font-extrabold">{finalPrice.toLocaleString()}₫</div>
-              {product.discount ? (
+              {Number(product.discount || 0) > 0 ? (
                 <>
                   <div className="text-gray-400 line-through">
                     {product.price.toLocaleString()}₫

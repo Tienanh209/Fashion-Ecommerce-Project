@@ -148,6 +148,13 @@ function parseInventoryRows(buffer) {
   return payloads;
 }
 
+const ACTIVE_SALE_DISCOUNT = `(SELECT COALESCE(MAX(s.discount),0)
+  FROM sale_details sd
+  JOIN sales s ON sd.sale_id = s.sale_id
+  WHERE sd.product_id = p.product_id
+    AND s.start_date <= NOW()
+    AND s.end_date >= NOW())`;
+
 function productWithCategoryBrand() {
   return knex("products as p")
     .leftJoin("categories as c", "p.category_id", "c.category_id")
@@ -161,7 +168,10 @@ function productWithCategoryBrand() {
       "p.description",
       "p.material",
       "p.price",
-      "p.discount",
+      knex.raw(`${ACTIVE_SALE_DISCOUNT} AS discount`),
+      knex.raw(
+        `p.price - FLOOR(p.price * (${ACTIVE_SALE_DISCOUNT}) / 100) AS final_price`
+      ),
       "p.thumbnail",
       "b.brand_id",
       "b.name as brand"
@@ -197,7 +207,6 @@ async function readProduct(payload) {
     description,
     material,
     price,
-    discount = 0,
     thumbnail = null,
     gender = "unisex",
     brand,
@@ -221,7 +230,6 @@ async function readProduct(payload) {
     gender,
     description,
     price,
-    discount,
     thumbnail,
   };
 
@@ -620,4 +628,5 @@ module.exports = {
   deleteGallery,
   importInventory,
   importInventoryBulk,
+  ACTIVE_SALE_DISCOUNT,
 };

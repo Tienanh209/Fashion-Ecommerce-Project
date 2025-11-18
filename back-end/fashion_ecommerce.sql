@@ -45,7 +45,6 @@ CREATE TABLE products (
   category_id INT,
   title VARCHAR(255) NOT NULL,
   price INT NOT NULL,
-  discount INT DEFAULT 0,
   description TEXT,
   material VARCHAR(255) NULL,
   thumbnail VARCHAR(255),
@@ -68,9 +67,6 @@ CREATE TABLE product_variants (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_variants_product FOREIGN KEY (product_id) REFERENCES products(product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-ALTER TABLE product_variants
-  ADD COLUMN cost_price INT NULL AFTER sku;
 
 -- Galleries
 CREATE TABLE galleries (
@@ -184,4 +180,24 @@ CREATE TABLE inventory_imports (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_inventory_import_product FOREIGN KEY (product_id) REFERENCES products(product_id),
   CONSTRAINT fk_inventory_import_variant FOREIGN KEY (variant_id) REFERENCES product_variants(variant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE sales (
+  sale_id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  content TEXT,
+  banner_url VARCHAR(255),
+  discount INT DEFAULT 5,
+  start_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  end_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE sale_details (
+  sale_item_id INT AUTO_INCREMENT PRIMARY KEY,
+  sale_id INT NOT NULL,
+  product_id INT NOT NULL,
+  CONSTRAINT fk_saledetails_sale FOREIGN KEY (sale_id) REFERENCES sales(sale_id),
+  CONSTRAINT fk_saledetails_product FOREIGN KEY (product_id) REFERENCES products(product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
