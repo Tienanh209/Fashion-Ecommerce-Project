@@ -121,9 +121,9 @@ CREATE TABLE reviews (
   rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
   title VARCHAR(150) NULL,
   content TEXT NULL,
+  status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'approved',
   CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(user_id),
   CONSTRAINT fk_reviews_product FOREIGN KEY (product_id) REFERENCES products(product_id),
   CONSTRAINT fk_reviews_order_item FOREIGN KEY (order_item_id) REFERENCES order_items(order_item_id),
@@ -165,6 +165,23 @@ CREATE TABLE history_images (
   CONSTRAINT fk_history_user FOREIGN KEY (user_id) REFERENCES users(user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Suppliers
+CREATE TABLE suppliers (
+  supplier_id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  address VARCHAR(255),
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Purchase orders
+CREATE TABLE purchase_orders (
+  purchase_order_id INT AUTO_INCREMENT PRIMARY KEY,
+  supplier_id INT NOT NULL,
+  note TEXT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_purchase_orders_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers(supplier_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Inventory import logs
 CREATE TABLE inventory_imports (
   import_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -176,10 +193,14 @@ CREATE TABLE inventory_imports (
   quantity INT NOT NULL CHECK (quantity > 0),
   cost_price INT NULL,
   selling_price INT NULL,
+  supplier_id INT NULL,
+  purchase_order_id INT NULL,
   source_file VARCHAR(255),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_inventory_import_product FOREIGN KEY (product_id) REFERENCES products(product_id),
-  CONSTRAINT fk_inventory_import_variant FOREIGN KEY (variant_id) REFERENCES product_variants(variant_id)
+  CONSTRAINT fk_inventory_import_variant FOREIGN KEY (variant_id) REFERENCES product_variants(variant_id),
+  CONSTRAINT fk_inventory_import_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers(supplier_id),
+  CONSTRAINT fk_inventory_import_purchase_order FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(purchase_order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE sales (

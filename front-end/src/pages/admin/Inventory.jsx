@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Upload,
   Plus,
@@ -7,11 +7,9 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useNavigate } from "react-router";
-import {
-  listProducts,
-  getProduct,
-  importInventoryBulk,
-} from "../../services/products";
+import { listProducts, getProduct } from "../../services/products";
+import { createPurchaseOrder } from "../../services/purchaseOrders";
+import { listSuppliers, createSupplier } from "../../services/suppliers";
 
 const fmtVND = (n) =>
   new Intl.NumberFormat("vi-VN", {
@@ -99,7 +97,27 @@ export default function Inventory() {
   const [reloadToken, setReloadToken] = useState(0);
   const [importingStock, setImportingStock] = useState(false);
   const [importMessage, setImportMessage] = useState({ ok: "", err: "" });
-  const importInputRef = useRef(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [receiptForm, setReceiptForm] = useState({
+    supplier_id: "",
+    note: "",
+    items: [
+      {
+        variant_id: "",
+        cost_price: "",
+        selling_price: "",
+        quantity: 1,
+      },
+    ],
+  });
+  const [formErrors, setFormErrors] = useState({});
+  const [suppliers, setSuppliers] = useState([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(false);
+  const [suppliersError, setSuppliersError] = useState("");
+  const [showSupplierForm, setShowSupplierForm] = useState(false);
+  const [newSupplier, setNewSupplier] = useState({ name: "", address: "" });
+  const [supplierFormError, setSupplierFormError] = useState("");
+  const [creatingSupplier, setCreatingSupplier] = useState(false);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -188,6 +206,27 @@ export default function Inventory() {
     ];
   }, [items, metadata]);
 
+  const variantOptions = useMemo(() => {
+    return items.flatMap((item) =>
+      (item.variants || [])
+        .filter((variant) => Number(variant?.variant_id))
+        .map((variant) => {
+          const parts = [item.title];
+          if (variant.sku) parts.push(`SKU ${variant.sku}`);
+          const attributes = [variant.color, variant.size]
+            .filter((v) => v && String(v).trim().length)
+            .join(" / ");
+          if (attributes) parts.push(attributes);
+          return {
+            variant_id: Number(variant.variant_id),
+            label: parts.join(" • "),
+          };
+        })
+    );
+  }, [items]);
+
+  const supplierCount = suppliers.length;
+
   const lowStockAlert = useMemo(() => {
     const lowOrCritical = items.filter(
       (it) => it.status === "Low Stock" || it.status === "Critical"
@@ -206,6 +245,82 @@ export default function Inventory() {
     return Array.from(new Set(base));
   }, [availableCategories]);
 
+  const resetReceiptForm = useCallback(() => {
+    setReceiptForm({
+      supplier_id: "",
+      note: "",
+      items: [
+        {
+          variant_id: "",
+          cost_price: "",
+          selling_price: "",
+          quantity: 1,
+        },
+      ],
+    });
+    setFormErrors({});
+    setShowSupplierForm(false);
+    setNewSupplier({ name: "", address: "" });
+    setSupplierFormError("");
+    setSuppliersError("");
+  }, []);
+
+  const loadSuppliers = useCallback(async () => {
+    try {
+      setSuppliersLoading(true);
+      setSuppliersError("");
+      const list = await listSuppliers();
+      const sorted = [...list].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      );
+      setSuppliers(sorted);
+    } catch (error) {
+      console.error(error);
+      setSuppliersError(error?.message || "Unable to load suppliers.");
+    } finally {
+      setSuppliersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showImportModal) {
+      loadSuppliers();
+    }
+  }, [showImportModal, loadSuppliers]);
+
+  useEffect(() => {
+    if (showImportModal && variantOptions.length) {
+      setReceiptForm((prev) => {
+        if (!prev.items.length) {
+          return {
+            ...prev,
+            items: [
+              {
+                variant_id: variantOptions[0].variant_id,
+                cost_price: "",
+                selling_price: "",
+                quantity: 1,
+              },
+            ],
+          };
+        }
+        const items = prev.items.map((item, idx) => {
+          if (idx === 0 && !item.variant_id) {
+            return { ...item, variant_id: variantOptions[0].variant_id };
+          }
+          return item;
+        });
+        return { ...prev, items };
+      });
+    }
+  }, [showImportModal, variantOptions]);
+
+  useEffect(() => {
+    if (showImportModal && !suppliersLoading && supplierCount === 0) {
+      setShowSupplierForm(true);
+    }
+  }, [showImportModal, suppliersLoading, supplierCount]);
+
   const handleAddProductClick = () => {
     navigate("/admin/addproduct");
   };
@@ -216,63 +331,185 @@ export default function Inventory() {
     if (!items.length) {
       setImportMessage({
         ok: "",
-        err: "Không có sản phẩm nào để nhập kho. Vui lòng thêm sản phẩm trước.",
+        err: "No products available. Please add a product first.",
       });
       return;
     }
-    if (importInputRef.current) {
-      importInputRef.current.value = "";
-      importInputRef.current.click();
+    if (!variantOptions.length) {
+      setImportMessage({
+        ok: "",
+        err: "No product variants available to import.",
+      });
+      return;
     }
+    resetReceiptForm();
+    setShowImportModal(true);
   };
 
-  const handleImportFileChange = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const isExcelFile =
-      /\.(xlsx|xls)$/i.test(file.name) ||
-      [
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-excel",
-      ].includes(file.type);
+  const handleCloseModal = () => {
+    if (importingStock) return;
+    setShowImportModal(false);
+    resetReceiptForm();
+  };
 
-    if (!isExcelFile) {
-      setImportMessage({
-        ok: "",
-        err: "File không hợp lệ. Chỉ chấp nhận Excel (.xlsx hoặc .xls).",
-      });
-      event.target.value = "";
+  const handleReceiptChange = (field) => (event) => {
+    const value = event.target.value;
+    setReceiptForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleNewSupplierChange = (field) => (event) => {
+    const value = event.target.value;
+    setNewSupplier((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleReceiptItemChange = (index, field) => (event) => {
+    const value = event.target.value;
+    setReceiptForm((prev) => {
+      const items = prev.items.map((item, idx) =>
+        idx === index ? { ...item, [field]: value } : item
+      );
+      return { ...prev, items };
+    });
+  };
+
+  const handleAddItemRow = () => {
+    setReceiptForm((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          variant_id: variantOptions[0]?.variant_id || "",
+          cost_price: "",
+          selling_price: "",
+          quantity: 1,
+        },
+      ],
+    }));
+  };
+
+  const handleRemoveItemRow = (index) => () => {
+    setReceiptForm((prev) => {
+      if (prev.items.length <= 1) return prev;
+      const items = prev.items.filter((_, idx) => idx !== index);
+      return { ...prev, items };
+    });
+  };
+
+  const validateReceiptForm = () => {
+    const errors = {};
+    if (!receiptForm.supplier_id) {
+      errors.supplier_id = "Supplier is required.";
+    }
+    if (!Array.isArray(receiptForm.items) || receiptForm.items.length === 0) {
+      errors.items = [{ variant_id: "At least one variant is required." }];
+      return errors;
+    }
+    const itemErrors = receiptForm.items.map((item) => {
+      const entryErrors = {};
+      if (!item.variant_id) {
+        entryErrors.variant_id = "Variant is required.";
+      }
+      const cost = Number(item.cost_price);
+      if (!Number.isFinite(cost) || cost <= 0) {
+        entryErrors.cost_price = "Enter a valid cost price.";
+      }
+      const selling = Number(item.selling_price);
+      if (!Number.isFinite(selling) || selling <= 0) {
+        entryErrors.selling_price = "Enter a valid selling price.";
+      }
+      if (
+        entryErrors.cost_price === undefined &&
+        entryErrors.selling_price === undefined &&
+        cost >= selling
+      ) {
+        entryErrors.cost_price = "Cost price must be lower than selling price.";
+        entryErrors.selling_price = "Cost price must be lower than selling price.";
+      }
+      const qty = Number(item.quantity);
+      if (!Number.isFinite(qty) || qty <= 0) {
+        entryErrors.quantity = "Quantity must be greater than 0.";
+      }
+      return entryErrors;
+    });
+    if (itemErrors.some((entry) => Object.keys(entry).length > 0)) {
+      errors.items = itemErrors;
+    }
+    return errors;
+  };
+
+  const handleSubmitReceipt = async (event) => {
+    event.preventDefault();
+    const errors = validateReceiptForm();
+    if (Object.keys(errors).length) {
+      setFormErrors(errors);
       return;
     }
-
     try {
       setImportingStock(true);
-      setImportMessage({ ok: "", err: "" });
-      const report = await importInventoryBulk(file);
-      const processed = report?.processedProducts || 0;
-      const productMsg =
-        processed > 0
-          ? `${processed} sản phẩm đã được cập nhật.`
-          : "Không có sản phẩm nào được nhập.";
+      setFormErrors({});
+      await createPurchaseOrder({
+        supplier_id: Number(receiptForm.supplier_id),
+        note: receiptForm.note,
+        items: receiptForm.items.map((item) => ({
+          variant_id: Number(item.variant_id),
+          cost_price: Number(item.cost_price),
+          selling_price: Number(item.selling_price),
+          quantity: Number(item.quantity),
+        })),
+      });
       setImportMessage({
-        ok: `Nhập kho thành công. ${productMsg}`,
+        ok: "Purchase order saved and stock updated.",
         err: "",
       });
+      setShowImportModal(false);
+      resetReceiptForm();
       setReloadToken((token) => token + 1);
-    } catch (e) {
-      console.error(e);
-      setImportMessage({
-        ok: "",
-        err: e?.message || "Không thể nhập kho. Vui lòng thử lại.",
+    } catch (error) {
+      console.error(error);
+      setFormErrors({
+        general: error?.message || "Failed to import stock.",
       });
     } finally {
       setImportingStock(false);
-      if (event.target) event.target.value = "";
+    }
+  };
+
+  const handleCreateSupplier = async () => {
+    if (!newSupplier.name.trim()) {
+      setSupplierFormError("Supplier name is required.");
+      return;
+    }
+    try {
+      setCreatingSupplier(true);
+      setSupplierFormError("");
+      const created = await createSupplier({
+        name: newSupplier.name.trim(),
+        address: newSupplier.address.trim(),
+      });
+      if (created?.supplier_id) {
+        setSuppliers((prev) =>
+          [...prev, created].sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+          )
+        );
+        setReceiptForm((prev) => ({
+          ...prev,
+          supplier_id: String(created.supplier_id),
+        }));
+        setShowSupplierForm(false);
+        setNewSupplier({ name: "", address: "" });
+      }
+    } catch (error) {
+      console.error(error);
+      setSupplierFormError(error?.message || "Failed to create supplier.");
+    } finally {
+      setCreatingSupplier(false);
     }
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] w-full bg-neutral-50">
+    <>
+      <div className="min-h-[calc(100vh-64px)] w-full bg-neutral-50">
       <div className="mx-auto max-w-7xl px-6 py-6">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -293,24 +530,23 @@ export default function Inventory() {
               {importingStock ? "Importing..." : "Import Stock"}
             </button>
             <button
+              className="inline-flex items-center gap-2 rounded-md border border-neutral-300 bg-white px-3.5 py-2 text-sm text-neutral-800 hover:bg-neutral-50"
+              onClick={() => navigate("/admin/purchase-orders")}
+            >
+              View Purchase Orders
+            </button>
+            <button
               className="inline-flex items-center gap-2 rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90"
               onClick={handleAddProductClick}
             >
               <Plus className="h-4 w-4" />
               Add Product
             </button>
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleImportFileChange}
-            />
           </div>
         </div>
         <p className="mb-4 text-xs text-neutral-500">
-          Excel import template must include columns: product_id, SKU, Size, Color,
-          Cost Price, Selling Price, Import Inventory (Qty).
+          Use the import flow to create purchase orders with suppliers, record quantities,
+          and update variant prices in one step.
         </p>
 
         {importMessage.err ? (
@@ -466,6 +702,289 @@ export default function Inventory() {
 
         <div className="h-6" />
       </div>
-    </div>
+      </div>
+      {showImportModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
+          <div className="flex w-full max-w-2xl max-h-[90vh] flex-col rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-neutral-900">
+                  Purchase order
+                </h2>
+                <p className="text-sm text-neutral-500">
+                  Record a supplier delivery and update stock quantities.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="rounded-full p-2 text-neutral-500 hover:bg-neutral-100"
+              >
+                ✕
+              </button>
+            </div>
+            {suppliersError ? (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                {suppliersError}
+              </div>
+            ) : null}
+            {formErrors.general ? (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                {formErrors.general}
+              </div>
+            ) : null}
+            <form
+              className="mt-6 flex-1 overflow-y-auto space-y-6 pr-1"
+              onSubmit={handleSubmitReceipt}
+            >
+              <div>
+                <label className="text-sm font-medium text-neutral-800">
+                  Supplier
+                </label>
+                <div className="mt-2 flex flex-col gap-2">
+                  <select
+                    className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+                    value={receiptForm.supplier_id}
+                    onChange={handleReceiptChange("supplier_id")}
+                  >
+                    <option value="">Select supplier</option>
+                    {suppliers.map((supplier) => (
+                      <option
+                        key={supplier.supplier_id}
+                        value={supplier.supplier_id}
+                      >
+                        {supplier.name}
+                      </option>
+                    ))}
+                  </select>
+                  {suppliersLoading ? (
+                    <p className="text-xs text-neutral-500">
+                      Loading suppliers...
+                    </p>
+                  ) : null}
+                  {formErrors.supplier_id ? (
+                    <p className="text-xs text-red-600">
+                      {formErrors.supplier_id}
+                    </p>
+                  ) : null}
+                  {showSupplierForm ? (
+                    <div className="rounded-lg border border-dashed border-neutral-300 p-3">
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <label className="text-xs text-neutral-500">
+                            Supplier name
+                          </label>
+                          <input
+                            type="text"
+                            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+                            value={newSupplier.name}
+                            onChange={handleNewSupplierChange("name")}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="text-xs text-neutral-500">
+                            Address
+                          </label>
+                          <input
+                            type="text"
+                            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+                            value={newSupplier.address}
+                            onChange={handleNewSupplierChange("address")}
+                          />
+                        </div>
+                      </div>
+                      {supplierFormError ? (
+                        <p className="mt-2 text-xs text-red-600">
+                          {supplierFormError}
+                        </p>
+                      ) : null}
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                          onClick={handleCreateSupplier}
+                          disabled={creatingSupplier}
+                        >
+                          {creatingSupplier ? "Saving..." : "Save supplier"}
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700"
+                          onClick={() => {
+                            setShowSupplierForm(false);
+                            setNewSupplier({ name: "", address: "" });
+                            setSupplierFormError("");
+                          }}
+                          disabled={creatingSupplier}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="text-left text-sm font-semibold text-neutral-700 underline"
+                      onClick={() => {
+                        setShowSupplierForm(true);
+                        setSupplierFormError("");
+                      }}
+                    >
+                      + Add supplier
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-neutral-800">
+                  Internal note (optional)
+                </label>
+                <textarea
+                  className="mt-2 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+                  rows={3}
+                  value={receiptForm.note}
+                  onChange={handleReceiptChange("note")}
+                />
+              </div>
+              <div className="space-y-4">
+                {receiptForm.items.map((item, idx) => {
+                  const itemErrors = formErrors.items?.[idx] || {};
+                  return (
+                    <div
+                      key={`po-item-${idx}`}
+                      className="rounded-2xl border border-neutral-200 p-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-semibold text-neutral-800">
+                          Variant #{idx + 1}
+                        </div>
+                        {receiptForm.items.length > 1 ? (
+                          <button
+                            type="button"
+                            onClick={handleRemoveItemRow(idx)}
+                            className="text-xs font-medium text-red-500 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="mt-3">
+                        <label className="text-xs font-medium text-neutral-500">
+                          Variant
+                        </label>
+                        <select
+                          className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+                          value={item.variant_id}
+                          onChange={handleReceiptItemChange(idx, "variant_id")}
+                        >
+                          <option value="">Select variant</option>
+                          {variantOptions.map((variant) => (
+                            <option
+                              key={variant.variant_id}
+                              value={variant.variant_id}
+                            >
+                              {variant.label}
+                            </option>
+                          ))}
+                        </select>
+                        {itemErrors.variant_id ? (
+                          <p className="text-xs text-red-600">
+                            {itemErrors.variant_id}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                        <div>
+                          <label className="text-xs font-medium text-neutral-500">
+                            Cost price (VND)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+                            value={item.cost_price}
+                            onChange={handleReceiptItemChange(idx, "cost_price")}
+                          />
+                          {itemErrors.cost_price ? (
+                            <p className="text-xs text-red-600">
+                              {itemErrors.cost_price}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-neutral-500">
+                            Selling price (VND)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+                            value={item.selling_price}
+                            onChange={handleReceiptItemChange(
+                              idx,
+                              "selling_price"
+                            )}
+                          />
+                          {itemErrors.selling_price ? (
+                            <p className="text-xs text-red-600">
+                              {itemErrors.selling_price}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-neutral-500">
+                            Quantity
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+                            value={item.quantity}
+                            onChange={handleReceiptItemChange(idx, "quantity")}
+                          />
+                          {itemErrors.quantity ? (
+                            <p className="text-xs text-red-600">
+                              {itemErrors.quantity}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <button
+                  type="button"
+                  className="w-full rounded-xl border border-dashed border-neutral-300 px-4 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+                  onClick={handleAddItemRow}
+                  disabled={!variantOptions.length}
+                >
+                  + Add another variant
+                </button>
+                {formErrors.items && typeof formErrors.items === "string" ? (
+                  <p className="text-xs text-red-600">{formErrors.items}</p>
+                ) : null}
+              </div>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="rounded-full border border-neutral-300 px-5 py-2 text-sm font-semibold text-neutral-600"
+                  disabled={importingStock}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-full bg-black px-6 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  disabled={importingStock}
+                >
+                  {importingStock ? "Saving..." : "Save receipt"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

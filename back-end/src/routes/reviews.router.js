@@ -42,6 +42,18 @@ module.exports.setup = (app) => {
   router.get("/", reviewsController.listReviews);
   router.all("/", methodNotAllowed);
 
+  // summary should be before generic /:id routes
+  router.get("/summary/:product_id", reviewsController.productSummary);
+  router.all("/summary/:product_id", methodNotAllowed);
+
+  // POST create review (user)
+  router.post("/:user_id", reviewsController.addReview);
+  router.all("/:user_id", methodNotAllowed);
+
+  // Status update
+  router.patch("/:review_id/status", reviewsController.updateStatus);
+  router.all("/:review_id/status", methodNotAllowed);
+
   /**
    * @swagger
    * /reviews/{review_id}:
@@ -81,59 +93,4 @@ module.exports.setup = (app) => {
   router.patch("/:review_id", reviewsController.updateReview);
   router.delete("/:review_id", reviewsController.deleteReview);
   router.all("/:review_id", methodNotAllowed);
-
-  /**
-   * @swagger
-   * /reviews/{user_id}:
-   *   post:
-   *     summary: Create a review
-   *     tags: [Reviews]
-   *     parameters: [ { $ref: '#/components/parameters/userIdParam' } ]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema: { $ref: '#/components/schemas/ReviewInput' }
-   *     responses:
-   *       201: { description: Created }
-   *       400: { $ref: '#/components/responses/400BadRequest' }
-   */
-  router.post("/:user_id", reviewsController.addReview);
-  router.all("/:user_id", methodNotAllowed);
-
-  /**
-   * @swagger
-   * /reviews/{review_id}/status:
-   *   patch:
-   *     summary: Moderate review status (admin)
-   *     tags: [Reviews]
-   *     parameters: [ { $ref: '#/components/parameters/reviewIdParam' } ]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             required: [status]
-   *             properties:
-   *               status: { type: string, enum: [pending, approved, rejected] }
-   *     responses:
-   *       200: { description: Updated }
-   *       400: { $ref: '#/components/responses/400BadRequest' }
-   */
-  router.patch("/:review_id/status", reviewsController.updateStatus);
-  router.all("/:review_id/status", methodNotAllowed);
-
-  /**
-   * @swagger
-   * /reviews/summary/{product_id}:
-   *   get:
-   *     summary: Aggregate rating summary for product
-   *     tags: [Reviews]
-   *     parameters: [ { $ref: '#/components/parameters/productIdParam' } ]
-   *     responses:
-   *       200: { description: OK }
-   */
-  router.get("/summary/:product_id", reviewsController.productSummary);
-  router.all("/summary/:product_id", methodNotAllowed);
 };

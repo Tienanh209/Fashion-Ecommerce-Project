@@ -33,7 +33,7 @@ function StarPicker({ value = 0, onChange }) {
           type="button"
           onClick={() => onChange?.(s)}
           className="p-1"
-          aria-label={`Đánh giá ${s} sao`}
+          aria-label={`Rate ${s} star${s > 1 ? "s" : ""}`}
         >
           <StarIcon filled={s <= value} />
         </button>
@@ -67,34 +67,34 @@ const rmDiacritics = (s) =>
 
 const MATERIAL_CARE_DICTIONARY = {
   cotton: [
-    "Giặt máy với nước lạnh và chu trình nhẹ để hạn chế co rút.",
-    "Tránh sử dụng thuốc tẩy gốc clo.",
-    "Phơi phẳng trong bóng râm, ủi ở nhiệt độ trung bình.",
+    "Machine wash cold on a gentle cycle to minimize shrinkage.",
+    "Avoid chlorine-based bleach.",
+    "Lay flat in the shade and iron at medium heat.",
   ],
   polyester: [
-    "Giặt máy với nước ấm, có thể phơi khô nhanh.",
-    "Không sử dụng nhiệt độ cao khi ủi, ưu tiên hơi nước.",
-    "Tránh sấy khô ở mức nhiệt quá cao để không biến dạng sợi.",
+    "Machine wash warm and hang to dry for best results.",
+    "Use low heat when ironing, preferably with steam.",
+    "Avoid high dryer temperatures to prevent fiber damage.",
   ],
   wool: [
-    "Giặt tay bằng nước lạnh hoặc sử dụng chế độ giặt len.",
-    "Không vắt mạnh, ép nhẹ để loại bỏ nước và phơi phẳng.",
-    "Bảo quản với gói hút ẩm để tránh ẩm mốc và côn trùng.",
+    "Hand wash with cold water or choose the wool setting.",
+    "Do not wring; press gently to remove water and dry flat.",
+    "Store with moisture absorbers to prevent mildew and insects.",
   ],
   denim: [
-    "Lộn trái sản phẩm trước khi giặt để giữ màu.",
-    "Giặt với nước lạnh, không giặt quá thường xuyên.",
-    "Phơi nơi thoáng mát, tránh ánh nắng trực tiếp.",
+    "Turn the garment inside out before washing to preserve color.",
+    "Wash with cold water and avoid over-washing.",
+    "Dry in a ventilated area away from direct sunlight.",
   ],
   linen: [
-    "Giặt máy ở chế độ nhẹ cùng nước lạnh.",
-    "Ủi khi vải còn hơi ẩm để hạn chế nhăn.",
-    "Bảo quản ở nơi khô ráo, tránh ẩm thấp.",
+    "Machine wash on a gentle cycle with cold water.",
+    "Iron while the fabric is slightly damp to reduce wrinkles.",
+    "Store in a dry place to avoid humidity damage.",
   ],
   silk: [
-    "Giặt tay với nước lạnh và dung dịch trung tính.",
-    "Không vắt xoắn, phơi nơi râm mát.",
-    "Ủi ở nhiệt độ thấp với lớp vải phủ bảo vệ.",
+    "Hand wash with cold water and a neutral detergent.",
+    "Do not twist; dry in a shaded area.",
+    "Iron at low heat with a protective cloth.",
   ],
 };
 
@@ -122,7 +122,7 @@ function resolveVariantId(variants = [], picked = { color: "", size: "" }) {
         ""
     );
 
-  // match đầy đủ
+  // full match
   let found = variants.find((v) => readColor(v) === wantColor && readSize(v) === wantSize);
   if (found) return found.variant_id ?? found.id;
 
@@ -138,7 +138,7 @@ function resolveVariantId(variants = [], picked = { color: "", size: "" }) {
     if (found) return found.variant_id ?? found.id;
   }
 
-  // fallback: variant đầu tiên
+  // fallback: first variant
   return variants[0].variant_id ?? variants[0].id ?? null;
 }
 
@@ -276,12 +276,12 @@ export default function ProductDetail() {
 
   const handleSubmitReview = async () => {
     if (!user?.user_id) {
-      alert("Bạn cần đăng nhập để đánh giá sản phẩm.");
+      alert("Please sign in to review this product.");
       return;
     }
     if (!product?.product_id) return;
     if (!reviewForm.rating || reviewForm.rating < 1 || reviewForm.rating > 5) {
-      alert("Vui lòng chọn số sao từ 1 tới 5.");
+      alert("Please choose a rating from 1 to 5 stars.");
       return;
     }
     try {
@@ -299,10 +299,10 @@ export default function ProductDetail() {
       setReviews(rv?.reviews || []);
       setReviewSummary(summaryRes?.summary || null);
       setReviewForm({ rating: 0, title: "", content: "" });
-      setReviewMessage({ ok: "Đã gửi đánh giá. Vui lòng chờ duyệt.", err: "" });
+      setReviewMessage({ ok: "Review submitted. Please wait for approval.", err: "" });
     } catch (e) {
       console.error(e);
-      setReviewMessage({ ok: "", err: e?.message || "Không thể gửi đánh giá. Vui lòng thử lại." });
+      setReviewMessage({ ok: "", err: e?.message || "Failed to submit your review. Please try again." });
     } finally {
       setReviewSubmitting(false);
     }
@@ -360,27 +360,31 @@ export default function ProductDetail() {
     }
   };
 
-  const onAddToCart = async () => {
-    if (!ready) return;
+  const addSelectedVariantToCart = async () => {
+    if (!ready || !product) return null;
     if (!user?.user_id) {
       const redirect = `/product/${product.product_id}`;
-      return navigate(`/login?redirect=${encodeURIComponent(redirect)}`);
+      navigate(`/login?redirect=${encodeURIComponent(redirect)}`);
+      return null;
     }
 
     const variant_id = resolveVariantId(product?.variants || [], variant);
     if (!variant_id) {
-      return alert("Variant not available for this product.");
+      alert("Variant not available for this product.");
+      return null;
     }
 
     const stock = Number(availableStock);
     if (availableStock !== null && Number.isFinite(stock) && stock <= 0) {
-      return alert("This variant is currently out of stock.");
+      alert("This variant is currently out of stock.");
+      return null;
     }
 
     const desiredQty = Math.max(1, Number(qty || 1));
     if (availableStock !== null && Number.isFinite(stock) && stock >= 0 && desiredQty > stock) {
       setQty(stock || 1);
-      return alert(`Only ${stock} item${stock > 1 ? "s" : ""} available for this variant.`);
+      alert(`Only ${stock} item${stock > 1 ? "s" : ""} available for this variant.`);
+      return null;
     }
 
     try {
@@ -389,12 +393,27 @@ export default function ProductDetail() {
         quantity: desiredQty,
       });
 
-      // Yêu cầu Header tự refresh badge
+      // Tell Header to refresh cart badge
       window.dispatchEvent(new CustomEvent("cart:refresh"));
 
-      alert("Added to cart");
+      return { variant_id, quantity: desiredQty };
     } catch (e) {
       alert(e?.message || "Failed to add to cart");
+      return null;
+    }
+  };
+
+  const onAddToCart = async () => {
+    const result = await addSelectedVariantToCart();
+    if (result) {
+      alert("Added to cart");
+    }
+  };
+
+  const onTryIt = async () => {
+    const result = await addSelectedVariantToCart();
+    if (result?.variant_id) {
+      navigate(`/virtual-tryon?variant=${result.variant_id}`);
     }
   };
 
@@ -442,15 +461,15 @@ export default function ProductDetail() {
   const missingSize = requiresSize && !variant?.size;
   let selectionHint = "";
   if (variants.length > 0) {
-    if (missingColor && missingSize) selectionHint = "Vui lòng chọn màu và kích cỡ.";
-    else if (missingColor) selectionHint = "Vui lòng chọn màu.";
-    else if (missingSize) selectionHint = "Vui lòng chọn kích cỡ.";
+    if (missingColor && missingSize) selectionHint = "Please select a color and size.";
+    else if (missingColor) selectionHint = "Please select a color.";
+    else if (missingSize) selectionHint = "Please select a size.";
   }
   const stockAvailable = Number(availableStock) > 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-16">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:py-10 lg:py-16">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Breadcrumb
             items={[
@@ -472,23 +491,47 @@ export default function ProductDetail() {
             </div>
 
             <section className="flex flex-col gap-6">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-gray-400">
-                  LATEST DROP
-                </p>
-                <h1 className="mt-2 text-3xl font-black text-gray-900 lg:text-4xl">{product.title}</h1>
-              <div className="mt-3 flex flex-wrap gap-2 text-sm text-gray-600">
-                {product.brand ? (
-                  <span className="rounded-full bg-gray-100 px-3 py-1">Brand: {product.brand}</span>
-                ) : null}
-                {product.gender ? (
-                  <span className="rounded-full bg-gray-100 px-3 py-1 capitalize">{product.gender}</span>
-                ) : null}
-                {product.category ? (
-                  <span className="rounded-full bg-gray-100 px-3 py-1">{product.category}</span>
-                ) : null}
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-gray-400">
+                    LATEST DROP
+                  </p>
+                  <h1 className="mt-2 text-3xl font-black text-gray-900 lg:text-4xl">{product.title}</h1>
+                  <div className="mt-3 flex flex-wrap gap-2 text-sm text-gray-600">
+                    {product.brand ? (
+                      <span className="rounded-full bg-gray-100 px-3 py-1">Brand: {product.brand}</span>
+                    ) : null}
+                    {product.gender ? (
+                      <span className="rounded-full bg-gray-100 px-3 py-1 capitalize">{product.gender}</span>
+                    ) : null}
+                    {product.category ? (
+                      <span className="rounded-full bg-gray-100 px-3 py-1">{product.category}</span>
+                    ) : null}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onToggleFavorite}
+                  aria-label={likedProduct ? "Remove from wishlist" : "Add to wishlist"}
+                  className={`rounded-full border p-3 transition ${
+                    likedProduct
+                      ? "border-rose-200 bg-rose-50 text-rose-500"
+                      : "border-gray-200 text-gray-700 hover:border-gray-400"
+                  }`}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    width="22"
+                    height="22"
+                    fill={likedProduct ? "currentColor" : "none"}
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  >
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                  </svg>
+                </button>
               </div>
-            </div>
 
             <div className="flex flex-wrap items-end gap-4 border-b border-dashed border-gray-200 pb-6">
               <div className="text-4xl font-black text-gray-900">{finalPrice.toLocaleString()}₫</div>
@@ -502,7 +545,7 @@ export default function ProductDetail() {
                   </span>
                 </div>
               ) : (
-                <div className="text-sm text-gray-500">Giá đã bao gồm VAT</div>
+                <div className="text-sm text-gray-500">Price includes VAT</div>
               )}
             </div>
 
@@ -523,8 +566,8 @@ export default function ProductDetail() {
                 {stockAvailable ? "✓" : "!"}
               </span>
               {stockAvailable
-                ? `Còn ${Number(availableStock)} sản phẩm trong kho`
-                : "Tạm hết hàng - vui lòng chọn lựa chọn khác"}
+                ? `${Number(availableStock)} item${Number(availableStock) === 1 ? "" : "s"} available in stock`
+                : "Out of stock – please choose another option"}
             </div>
 
             <div className="rounded-3xl border border-gray-100 bg-slate-50/80 p-4">
@@ -542,29 +585,19 @@ export default function ProductDetail() {
                     }`}
                     disabled={addDisabled}
                   >
-                    {outOfStock ? "Hết hàng" : "Thêm vào giỏ"}
+                    {outOfStock ? "Sold out" : "Add to Cart"}
                   </button>
                   <button
                     type="button"
-                    onClick={onToggleFavorite}
-                    className={`flex flex-1 items-center justify-center gap-2 rounded-full border px-6 py-3 text-sm font-semibold transition ${
-                      likedProduct
-                        ? "border-rose-200 bg-rose-50 text-rose-500"
-                        : "border-gray-200 text-gray-700 hover:border-gray-400"
+                    onClick={onTryIt}
+                    className={`flex flex-1 items-center justify-center rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-wide transition ${
+                      addDisabled
+                        ? "cursor-not-allowed border border-gray-200 text-gray-400"
+                        : "border border-gray-300 text-gray-800 hover:border-gray-600"
                     }`}
+                    disabled={addDisabled}
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      width="18"
-                      height="18"
-                      fill={likedProduct ? "currentColor" : "none"}
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    >
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                    </svg>
-                    {likedProduct ? "Đã yêu thích" : "Thêm vào Wishlist"}
+                    Try it
                   </button>
                 </div>
               </div>
@@ -575,12 +608,12 @@ export default function ProductDetail() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl border border-gray-100 p-4">
-                <p className="text-sm font-semibold text-gray-900">Giao hàng toàn quốc</p>
-                <p className="text-xs text-gray-500">Miễn phí với đơn từ 500.000₫</p>
+                <p className="text-sm font-semibold text-gray-900">Nationwide delivery</p>
+                <p className="text-xs text-gray-500">Free for orders from 500,000₫</p>
               </div>
               <div className="rounded-2xl border border-gray-100 p-4">
-                <p className="text-sm font-semibold text-gray-900">Đổi trả trong 7 ngày</p>
-                <p className="text-xs text-gray-500">Áp dụng cho sản phẩm nguyên tem mác</p>
+                <p className="text-sm font-semibold text-gray-900">7-day returns</p>
+                <p className="text-xs text-gray-500">Applicable to unworn items with original tags</p>
               </div>
             </div>
           </section>
@@ -590,7 +623,7 @@ export default function ProductDetail() {
         <div className="mt-12 space-y-10">
           <div className="border-t" />
           <section className="pt-6">
-            <h2 className="text-lg font-semibold text-gray-900">Chi tiết</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Product details</h2>
             {descriptionLines.length ? (
               <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-gray-700">
                 {descriptionLines.map((line, idx) => (
@@ -599,7 +632,7 @@ export default function ProductDetail() {
               </ul>
             ) : (
               <p className="mt-4 text-sm text-gray-500">
-                Thông tin chi tiết sẽ được cập nhật sớm.
+                Detailed information will be updated soon.
               </p>
             )}
           </section>
@@ -607,7 +640,7 @@ export default function ProductDetail() {
           <div className="border-t" />
           <section className="pt-6">
             <h2 className="text-lg font-semibold text-gray-900">
-              Chất liệu / Cách chăm sóc
+              Materials / Care
             </h2>
             {materialSource ? (
               <div className="mt-4 rounded-lg border border-gray-100 p-4">
@@ -617,7 +650,7 @@ export default function ProductDetail() {
                 {materialCareList.length ? (
                   <div className="mt-4">
                     <div className="text-sm font-medium text-gray-900">
-                      Hướng dẫn giặt
+                      Care instructions
                     </div>
                     <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
                       {materialCareList.map((item, idx) => (
@@ -627,13 +660,13 @@ export default function ProductDetail() {
                   </div>
                 ) : (
                   <p className="mt-2 text-sm text-gray-500">
-                    Tham khảo nhãn chăm sóc để biết thêm chi tiết.
+                    Please refer to the care label for more details.
                   </p>
                 )}
               </div>
             ) : (
               <p className="mt-4 text-sm text-gray-500">
-                Chất liệu sẽ được cập nhật cho sản phẩm này.
+                Material information for this product will be updated soon.
               </p>
             )}
           </section>

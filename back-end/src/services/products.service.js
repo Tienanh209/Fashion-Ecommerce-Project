@@ -536,6 +536,8 @@ async function applyInventoryForProduct(product_id, rows, originalName = null) {
         quantity: row.quantity,
         cost_price: row.cost_price,
         selling_price: row.selling_price,
+        supplier_id: row.supplier_id || null,
+        purchase_order_id: row.purchase_order_id || null,
         source_file: originalName || null,
       });
 

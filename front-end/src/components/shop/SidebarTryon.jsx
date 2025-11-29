@@ -284,6 +284,7 @@ export default function SidebarTryon({
   onGenerate,
   generating = false,
   submitError = "",
+  preselectVariantId = null,
 }) {
   const [mixClothes, setMixClothes] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -304,6 +305,7 @@ export default function SidebarTryon({
   const [selectedTopId, setSelectedTopId] = useState(null);
   const [selectedBottomId, setSelectedBottomId] = useState(null);
   const [selectedOnePieceId, setSelectedOnePieceId] = useState(null);
+  const [preselectApplied, setPreselectApplied] = useState(false);
   const combinedItems = useMemo(
     () => [...topItems, ...bottomItems],
     [topItems, bottomItems]
@@ -332,6 +334,22 @@ export default function SidebarTryon({
   const topScrollable = topItems.length > 4;
   const bottomScrollable = bottomItems.length > 4;
   const onePieceScrollable = combinedItems.length > 4;
+
+  useEffect(() => {
+    setPreselectApplied(false);
+  }, [preselectVariantId]);
+
+  useEffect(() => {
+    if (!preselectVariantId || preselectApplied) return;
+    const normalized = String(preselectVariantId);
+    const match =
+      combinedItems.find((item) => String(item.id) === normalized) || null;
+    if (match) {
+      setMixClothes(false);
+      setSelectedOnePieceId(match.id);
+      setPreselectApplied(true);
+    }
+  }, [preselectVariantId, preselectApplied, combinedItems]);
 
   const cleanupPreview = () => {
     if (modelPreviewRef.current) {

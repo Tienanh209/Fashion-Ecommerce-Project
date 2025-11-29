@@ -121,7 +121,7 @@ async function addReview(user_id, payload) {
       rating: Math.round(Number(data.rating)),
       title: data.title,
       content: data.content,
-      status: "approved", // default from schema; keep explicit
+      status: "pending",
     };
 
     const [review_id] = await trx("reviews").insert(insertData);
@@ -183,7 +183,12 @@ async function summaryByProduct(product_id) {
     .avg({ avgRating: "rating" })
     .first();
   const average = avgRow?.avgRating ? Number(avgRow.avgRating) : 0;
-  return { product_id, total, average, breakdown: rows };
+  return {
+    product_id,
+    total,
+    average,
+    breakdown: rows,
+  };
 }
 
 module.exports = {

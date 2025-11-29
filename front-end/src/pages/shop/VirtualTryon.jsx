@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router";
 import { SidebarTryon, SidebarHistory } from "../../components";
 import { generateVirtualTryOn } from "../../services/virtualTryon";
 import historyService from "../../services/history";
@@ -80,6 +81,7 @@ async function mergeOutfitImages(topPath, bottomPath) {
 
 function VirtualTryon() {
   const { user, ready } = useAuth();
+  const location = useLocation();
   const [generatedImage, setGeneratedImage] = useState("");
   const [notes, setNotes] = useState([]);
   const [error, setError] = useState("");
@@ -88,6 +90,11 @@ function VirtualTryon() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const userId = useMemo(() => user?.user_id ?? null, [user]);
+  const preselectVariantId = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const value = params.get("variant");
+    return value ? value.trim() : null;
+  }, [location.search]);
 
   const refreshHistory = useCallback(async () => {
     if (!ready || !userId) {
@@ -190,6 +197,7 @@ function VirtualTryon() {
           onGenerate={handleGenerate}
           generating={generating}
           submitError={error}
+          preselectVariantId={preselectVariantId}
         />
       </aside>
       <section className="flex w-full flex-1 flex-col gap-6 rounded-3xl bg-white p-6 shadow-sm">

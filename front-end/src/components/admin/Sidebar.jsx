@@ -8,6 +8,8 @@ import {
   Settings as SettingsIcon,
   Store,
   Tags,
+  MessageSquare,
+  Truck,
 } from "lucide-react";
 import { NavLink } from "react-router";
 
@@ -15,8 +17,10 @@ const nav = [
   { key: "dashboard", label: "Dashboard", icon: LayoutGrid, to: "/admin", end: true },
   { key: "order-management", label: "Order Management", icon: ClipboardList, to: "/admin/orders" },
   { key: "inventory", label: "Inventory", icon: Boxes, to: "/admin/inventory" },
+  { key: "purchase-orders", label: "Purchase Orders", icon: Truck, to: "/admin/purchase-orders" },
   { key: "add-product", label: "Add Product", icon: SquarePlus, to: "/admin/addproduct" },
   { key: "sales", label: "Sales", icon: Tags, to: "/admin/sales" },
+  { key: "reviews", label: "Reviews", icon: MessageSquare, to: "/admin/reviews" },
   { key: "customers", label: "Customers", icon: Users, to: "/admin/customers" },
   { key: "analytics", label: "Analytics", icon: BarChart2, to: "/admin/analytics" },
   { key: "settings", label: "Settings", icon: SettingsIcon, to: "/admin/settings" },

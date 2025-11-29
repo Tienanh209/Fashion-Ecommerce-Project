@@ -21,11 +21,13 @@ import {
   Customers,
   OrdersManagement,
   Inventory,
+  PurchaseOrders,
   Settings,
   AddProduct,
   Analytics,
   Dashboard,
   Sales,
+  Reviews,
 } from "../pages";
 
 import GuestLayout from "../layouts/GuestLayout";
@@ -93,8 +95,10 @@ export default function AppRoutes() {
             <Route path="/admin/orders" element={<OrdersManagement />} />
             <Route path="/admin/customers" element={<Customers />} />
             <Route path="/admin/inventory" element={<Inventory />} />
+            <Route path="/admin/purchase-orders" element={<PurchaseOrders />} />
             <Route path="/admin/addproduct" element={<AddProduct />} />
             <Route path="/admin/sales" element={<Sales />} />
+            <Route path="/admin/reviews" element={<Reviews />} />
             <Route path="/admin/analytics" element={<Analytics />} />
             <Route path="/admin/settings" element={<Settings />} />
           </Route>
