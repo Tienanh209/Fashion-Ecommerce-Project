@@ -33,7 +33,6 @@ const fmtVND = (n) =>
   }).format(Number(n || 0));
 
 const MAX_ORDERS = 120;
-const ORDER_DETAIL_LIMIT = 80;
 const REVENUE_STATUSES = new Set(["shipped", "completed"]);
 const ORDER_CARD_STATUSES = ["completed", "paid", "shipped", "pending"];
 const STATUS_LABELS = {
@@ -58,13 +57,48 @@ const STATUS_BADGES = {
   cancelled: "bg-red-100 text-red-700 rounded-2xl px-2 py-1",
 };
 
+const RANGE_OPTIONS = [
+  { key: "day", label: "Day" },
+  { key: "week", label: "Week" },
+  { key: "month", label: "Month" },
+  { key: "year", label: "Year" },
+];
+
+const RANGE_CONFIG = {
+  day: {
+    label: "Today",
+    prevLabel: "yesterday",
+    unit: "day",
+    start: (now) => now.startOf("day"),
+  },
+  week: {
+    label: "This week",
+    prevLabel: "last week",
+    unit: "week",
+    start: (now) => now.startOf("week"),
+  },
+  month: {
+    label: "This month",
+    prevLabel: "last month",
+    unit: "month",
+    start: (now) => now.startOf("month"),
+  },
+  year: {
+    label: "This year",
+    prevLabel: "last year",
+    unit: "year",
+    start: (now) => now.startOf("year"),
+  },
+};
+
 const INITIAL_METRICS = {
   revenue: {
     total: 0,
     live: 0,
-    day: 0,
-    week: 0,
-    month: 0,
+    gross: 0,
+    avgSell: 0,
+    avgCost: 0,
+    units: 0,
     deltaPct: 0,
   },
   orders: {
@@ -163,19 +197,276 @@ const computeItemSalePrice = (item = {}) => {
   return 0;
 };
 
+const safeParseDate = (value, fallback = dayjs()) => {
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed : fallback;
+};
+
+const getRangeWindow = (key, now = dayjs(), { rangeStart, rangeEnd } = {}) => {
+  if (key === "custom-range") {
+    const startCandidate = safeParseDate(rangeStart, now.startOf("day"));
+    const endCandidate = safeParseDate(rangeEnd, now.endOf("day"));
+    const start =
+      endCandidate.isBefore(startCandidate) ? endCandidate : startCandidate;
+    const end =
+      endCandidate.isBefore(startCandidate) ? startCandidate : endCandidate;
+    const days = Math.max(end.diff(start, "day") + 1, 1);
+    const prevStart = start.subtract(days, "day");
+    const prevEnd = start.subtract(1, "day").endOf("day");
+    return {
+      start,
+      end,
+      prevStart,
+      prevEnd,
+      label: `${start.format("YYYY-MM-DD")} to ${end.format("YYYY-MM-DD")}`,
+      prevLabel: "previous range",
+    };
+  }
+
+  const cfg = RANGE_CONFIG[key] || RANGE_CONFIG.month;
+  const start = cfg.start(now);
+  const end = now;
+  const prevStart = start.subtract(1, cfg.unit);
+  const prevEnd = start.subtract(1, "millisecond");
+  return {
+    start,
+    end,
+    prevStart,
+    prevEnd,
+    label: cfg.label,
+    prevLabel: cfg.prevLabel,
+  };
+};
+
+const filterOrdersInRange = (orders = [], start, end) =>
+  (orders || []).filter((o) =>
+    o.createdAt?.isBetween(start, end, "millisecond", "[]")
+  );
+
+const computeSalesStats = (orders = [], detailMap = new Map(), variantCostMap = new Map()) => {
+  let gross = 0;
+  let totalCost = 0;
+  let units = 0;
+
+  orders.forEach((order) => {
+    const detail = detailMap.get(order.order_id);
+    const items = detail?.items || [];
+    items.forEach((item) => {
+      const qty = Number(item.quantity || 0);
+      if (!qty) return;
+      const salePrice = computeItemSalePrice(item);
+      const variantId = item.variant_id ?? item.variantId;
+      const costCandidate = variantCostMap?.get(Number(variantId));
+      const costUnit = Number.isFinite(costCandidate) ? costCandidate : 0;
+      gross += salePrice * qty;
+      totalCost += costUnit * qty;
+      units += qty;
+    });
+  });
+
+  const avgSell = units ? gross / units : 0;
+  const avgCost = units ? totalCost / units : 0;
+
+  return {
+    gross,
+    totalCost,
+    avgSell,
+    avgCost,
+    profit: gross - totalCost,
+    units,
+  };
+};
+
+const buildTopProducts = (
+  revenueOrders = [],
+  detailMap = new Map(),
+  productStocks = new Map()
+) => {
+  const productTotals = new Map();
+
+  revenueOrders.forEach((order) => {
+    const detail = detailMap.get(order.order_id);
+    const items = detail?.items || [];
+    items.forEach((item) => {
+      const quantity = Number(item.quantity || 0);
+      if (!quantity) return;
+      const salePrice = computeItemSalePrice(item);
+      const revenue = salePrice * quantity;
+      if (!revenue) return;
+      const key = item.product_id || item.variant_id;
+      if (!key) return;
+      const existing = productTotals.get(key) || {
+        product_id: item.product_id || null,
+        variant_id: item.variant_id,
+        name:
+          item.product_title ||
+          item.product?.title ||
+          `Variant ${item.variant_id}`,
+        category:
+          item.category_name ||
+          item.category ||
+          item.product?.category ||
+          "Products",
+        revenue: 0,
+        sold: 0,
+      };
+      existing.revenue += revenue;
+      existing.sold += quantity;
+      productTotals.set(key, existing);
+    });
+  });
+
+  return Array.from(productTotals.values())
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 20)
+    .map((entry, index) => {
+      const stockInfo =
+        entry.product_id != null ? productStocks.get(entry.product_id) : null;
+      let stockLabel = "—";
+      if (stockInfo) {
+        if (
+          !Number.isFinite(stockInfo.totalUnits) ||
+          stockInfo.totalUnits <= 0
+        ) {
+          stockLabel = "Out";
+        } else if (stockInfo.lowCount > 0) {
+          stockLabel = "Low";
+        } else {
+          stockLabel = "In Stock";
+        }
+      }
+
+      return {
+        i: index + 1,
+        name: entry.name,
+        cat: entry.category,
+        revenue: entry.revenue,
+        sold: entry.sold,
+        stock: stockLabel,
+      };
+    });
+};
+
+const buildRecentOrders = (orders = [], detailMap = new Map()) =>
+  orders.slice(0, 30).map((order) => {
+    const detail = detailMap.get(order.order_id);
+    const items = detail?.items || [];
+    const itemCount = items.reduce(
+      (sum, item) => sum + Number(item.quantity || 0),
+      0
+    );
+    return {
+      id: `#${order.order_id}`,
+      name: order.customerName,
+      items: itemCount || items.length || "—",
+      total: order.total,
+      status: order.status,
+      time: order.createdAt.fromNow(),
+    };
+  });
+
+const computeDashboardForRange = (rangeKey, dataset, options = {}) => {
+  if (!dataset) return null;
+  const now = options.now || dayjs();
+  const { start, end, prevStart, prevEnd } = getRangeWindow(
+    rangeKey,
+    now,
+    options
+  );
+  const orders = dataset.orders || [];
+
+  const rangeOrders = filterOrdersInRange(orders, start, end);
+  const prevOrders = filterOrdersInRange(orders, prevStart, prevEnd);
+  const revenueOrders = rangeOrders.filter((o) => REVENUE_STATUSES.has(o.status));
+  const prevRevenueOrders = prevOrders.filter((o) => REVENUE_STATUSES.has(o.status));
+
+  const sales = computeSalesStats(
+    revenueOrders,
+    dataset.detailMap,
+    dataset.variantCostMap
+  );
+  const prevSales = computeSalesStats(
+    prevRevenueOrders,
+    dataset.detailMap,
+    dataset.variantCostMap
+  );
+  const liveSales = computeSalesStats(
+    revenueOrders.filter((o) => o.createdAt.isAfter(now.subtract(1, "hour"))),
+    dataset.detailMap,
+    dataset.variantCostMap
+  );
+
+  const orderBreakdown = ORDER_CARD_STATUSES.reduce((acc, key) => {
+    acc[key] = rangeOrders.filter((o) => o.status === key).length;
+    return acc;
+  }, {});
+
+  const activeOrdersNow = rangeOrders.filter((o) =>
+    o.createdAt.isAfter(now.subtract(1, "hour"))
+  ).length;
+
+  return {
+    metrics: {
+      revenue: {
+        total: sales.profit,
+        live: liveSales.profit,
+        gross: sales.gross,
+        avgSell: sales.avgSell,
+        avgCost: sales.avgCost,
+        units: sales.units,
+        deltaPct: percentChange(sales.profit, prevSales.profit),
+      },
+      orders: {
+        today: rangeOrders.length,
+        deltaPct: percentChange(rangeOrders.length, prevOrders.length),
+        activeNow: activeOrdersNow,
+        breakdown: orderBreakdown,
+      },
+      customers: dataset.customers || INITIAL_METRICS.customers,
+      inventory: dataset.inventory || INITIAL_METRICS.inventory,
+    },
+    recentOrders: buildRecentOrders(rangeOrders, dataset.detailMap),
+    topProducts: buildTopProducts(
+      revenueOrders,
+      dataset.detailMap,
+      dataset.productStocks
+    ),
+  };
+};
+
 /* ---- page ---- */
 export default function Dashboard() {
   const [metrics, setMetrics] = useState(INITIAL_METRICS);
   const [recentOrders, setRecentOrders] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
+  const [timeframe, setTimeframe] = useState("month");
+  const [rangeStart, setRangeStart] = useState(
+    dayjs().subtract(7, "day").format("YYYY-MM-DD")
+  );
+  const [rangeEnd, setRangeEnd] = useState(dayjs().format("YYYY-MM-DD"));
+  const [baseData, setBaseData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const onRangeChange = (key, value) => {
+    if (key === "start") setRangeStart(value);
+    else setRangeEnd(value);
+  };
+  const rangeWindow = useMemo(
+    () =>
+      getRangeWindow(timeframe, baseData?.loadedAt ? dayjs(baseData.loadedAt) : dayjs(), {
+        rangeStart,
+        rangeEnd,
+      }),
+    [timeframe, baseData?.loadedAt, rangeStart, rangeEnd]
+  );
 
   const cards = useMemo(() => {
     const revenue = metrics.revenue;
     const orders = metrics.orders;
     const customers = metrics.customers;
     const inventory = metrics.inventory;
+    const prevLabel = rangeWindow.prevLabel || "previous period";
+    const currentLabel = rangeWindow.label || "";
 
     const orderShare = (count) =>
       orders.today ? Math.round((count / orders.today) * 100) : 0;
@@ -193,10 +484,10 @@ export default function Dashboard() {
 
     return [
       {
-        title: "Total Revenue",
+        title: `Total Revenue (${currentLabel})`,
         value: loading ? "…" : fmtVND(revenue.total),
         delta: {
-          text: formatDeltaText(revenue.deltaPct, "vs last month"),
+          text: formatDeltaText(revenue.deltaPct, `vs ${prevLabel}`),
           pos: revenue.deltaPct >= 0,
         },
         icon: DollarSign,
@@ -207,33 +498,41 @@ export default function Dashboard() {
               label={
                 <span className="inline-flex items-center gap-2">
                   <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                  Live Revenue
+                  Live Profit (1h)
                 </span>
               }
               value={loading ? "…" : fmtVND(revenue.live)}
             />
             <Row
-              label="In a day"
-              value={loading ? "…" : fmtVND(revenue.day)}
+              label="Gross Sales"
+              value={loading ? "…" : fmtVND(revenue.gross)}
             />
             <Row
-              label="In a week"
-              value={loading ? "…" : fmtVND(revenue.week)}
+              label="Avg Selling Price"
+              value={loading ? "…" : fmtVND(revenue.avgSell)}
             />
             <Row
-              label="In a month"
-              value={loading ? "…" : fmtVND(revenue.month)}
+              label="Avg Import Cost"
+              value={loading ? "…" : fmtVND(revenue.avgCost)}
+            />
+            <Row
+              label="Units Sold"
+              value={
+                loading
+                  ? "…"
+                  : revenue.units.toLocaleString("vi-VN")
+              }
             />
           </div>
         ),
       },
       {
-        title: "Orders Today",
+        title: `Orders (${currentLabel})`,
         value: loading
           ? "…"
           : orders.today.toLocaleString("vi-VN"),
         delta: {
-          text: formatDeltaText(orders.deltaPct, "vs yesterday"),
+          text: formatDeltaText(orders.deltaPct, `vs ${prevLabel}`),
           pos: orders.deltaPct >= 0,
         },
         icon: Calendar,
@@ -244,7 +543,7 @@ export default function Dashboard() {
               label={
                 <span className="inline-flex items-center gap-2">
                   <CircleDot className="h-3.5 w-3.5 text-emerald-600" />
-                  Active Now
+                  New in last hour
                 </span>
               }
               value={loading ? "…" : orders.activeNow.toLocaleString("vi-VN")}
@@ -377,7 +676,7 @@ export default function Dashboard() {
         ),
       },
     ];
-  }, [metrics, loading]);
+  }, [metrics, loading, rangeWindow]);
   useEffect(() => {
     let cancelled = false;
 
@@ -424,63 +723,9 @@ export default function Dashboard() {
           .filter(Boolean)
           .sort((a, b) => b.createdAt.valueOf() - a.createdAt.valueOf());
 
-        const revenueOrders = normalizedOrders.filter((o) =>
-          REVENUE_STATUSES.has(o.status)
-        );
-
         const monthStart = now.startOf("month");
         const prevMonthStart = monthStart.subtract(1, "month");
         const prevMonthEnd = monthStart.subtract(1, "millisecond");
-
-        const sumRevenue = (orders) =>
-          orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
-
-        const currentMonthRevenue = sumRevenue(
-          revenueOrders.filter((o) => o.createdAt.isSame(monthStart, "month"))
-        );
-        const previousMonthRevenue = sumRevenue(
-          revenueOrders.filter((o) =>
-            o.createdAt.isBetween(prevMonthStart, prevMonthEnd, "millisecond", "[]")
-          )
-        );
-
-        const liveRevenue = sumRevenue(
-          revenueOrders.filter((o) => o.createdAt.isAfter(now.subtract(1, "hour")))
-        );
-        const dayRevenue = sumRevenue(
-          revenueOrders.filter((o) => o.createdAt.isAfter(now.subtract(1, "day")))
-        );
-        const weekRevenue = sumRevenue(
-          revenueOrders.filter((o) => o.createdAt.isAfter(now.subtract(7, "day")))
-        );
-        const monthRevenue = sumRevenue(
-          revenueOrders.filter((o) => o.createdAt.isAfter(now.subtract(30, "day")))
-        );
-
-        const revenueDeltaPct = percentChange(
-          currentMonthRevenue,
-          previousMonthRevenue
-        );
-
-        const todayOrders = normalizedOrders.filter((o) =>
-          o.createdAt.isSame(now, "day")
-        );
-        const yesterdayOrders = normalizedOrders.filter((o) =>
-          o.createdAt.isSame(now.subtract(1, "day"), "day")
-        );
-        const orderDeltaPct = percentChange(
-          todayOrders.length,
-          yesterdayOrders.length
-        );
-
-        const activeOrdersNow = todayOrders.filter((o) =>
-          o.createdAt.isAfter(now.subtract(1, "hour"))
-        ).length;
-
-        const orderBreakdown = ORDER_CARD_STATUSES.reduce((acc, key) => {
-          acc[key] = todayOrders.filter((o) => o.status === key).length;
-          return acc;
-        }, {});
 
         const customerSpend = new Map();
         const customerFirstOrder = new Map();
@@ -495,7 +740,10 @@ export default function Dashboard() {
               (customerSpend.get(order.user_id) || 0) + order.total
             );
           }
-          if (!customerFirstOrder.has(order.user_id) || order.createdAt.isBefore(customerFirstOrder.get(order.user_id))) {
+          if (
+            !customerFirstOrder.has(order.user_id) ||
+            order.createdAt.isBefore(customerFirstOrder.get(order.user_id))
+          ) {
             customerFirstOrder.set(order.user_id, order.createdAt);
           }
           if (order.createdAt.isSame(monthStart, "month")) {
@@ -531,13 +779,7 @@ export default function Dashboard() {
           prevMonthCustomers.size
         );
 
-        const detailIdSet = new Set();
-        normalizedOrders.slice(0, 8).forEach((order) => detailIdSet.add(order.order_id));
-        revenueOrders.slice(0, ORDER_DETAIL_LIMIT).forEach((order) =>
-          detailIdSet.add(order.order_id)
-        );
-
-        const detailIds = Array.from(detailIdSet);
+        const detailIds = normalizedOrders.map((order) => order.order_id);
         const detailResults = await Promise.allSettled(
           detailIds.map((id) => apiGetOrder(id))
         );
@@ -551,44 +793,12 @@ export default function Dashboard() {
           detailMap.set(id, payload);
         });
 
-        const productTotals = new Map();
-        revenueOrders.slice(0, ORDER_DETAIL_LIMIT).forEach((order) => {
-          const detail = detailMap.get(order.order_id);
-          const items = detail?.items || [];
-          items.forEach((item) => {
-            const quantity = Number(item.quantity || 0);
-            if (!quantity) return;
-            const salePrice = computeItemSalePrice(item);
-            const revenue = salePrice * quantity;
-            if (!revenue) return;
-            const key = item.product_id || item.variant_id;
-            if (!key) return;
-            const existing = productTotals.get(key) || {
-              product_id: item.product_id || null,
-              variant_id: item.variant_id,
-              name:
-                item.product_title ||
-                item.product?.title ||
-                `Variant ${item.variant_id}`,
-              category:
-                item.category_name ||
-                item.category ||
-                item.product?.category ||
-                "Products",
-              revenue: 0,
-              sold: 0,
-            };
-            existing.revenue += revenue;
-            existing.sold += quantity;
-            productTotals.set(key, existing);
-          });
-        });
-
         const { products: productList } = await apiListProducts({
           page: 1,
           limit: 40,
         });
         const productStocks = new Map();
+        const variantCostMap = new Map();
         const inventoryTotals = {
           totalUnits: 0,
           variantCount: 0,
@@ -604,106 +814,56 @@ export default function Dashboard() {
         );
         const productIdList = Array.from(productMap.keys());
 
-        const productDetailResults = await Promise.allSettled(
-          productIdList.map((id) => apiGetProduct(id))
-        );
-
-        productDetailResults.forEach((result, index) => {
-          if (result.status !== "fulfilled") return;
-          const detail = result.value;
-          const productId = productIdList[index];
-          const baseProduct = productMap.get(productId);
-          const variants = detail?.variants || [];
-          let totalUnitsPerProduct = 0;
-          let lowCount = 0;
-          let outCount = 0;
-          variants.forEach((variant) => {
-            const qty = Number(variant.stock || 0);
-            totalUnitsPerProduct += qty;
-            inventoryTotals.variantCount += 1;
-            inventoryTotals.totalUnits += qty;
-            if (qty <= 0) {
-              inventoryTotals.outStockCount += 1;
-              outCount += 1;
-            } else if (qty <= 5) {
-              inventoryTotals.lowStockCount += 1;
-              lowCount += 1;
-            } else {
-              inventoryTotals.inStockCount += 1;
-            }
-          });
-          if (productId != null) {
-            productStocks.set(productId, {
-              totalUnits: totalUnitsPerProduct,
-              lowCount,
-              outCount,
-            });
-          }
-        });
-
-        const topProductList = Array.from(productTotals.values())
-          .sort((a, b) => b.revenue - a.revenue)
-          .slice(0, 5)
-          .map((entry, index) => {
-            const stockInfo =
-              entry.product_id != null
-                ? productStocks.get(entry.product_id)
-                : null;
-            let stockLabel = "—";
-            if (stockInfo) {
-              if (!Number.isFinite(stockInfo.totalUnits) || stockInfo.totalUnits <= 0) {
-                stockLabel = "Out";
-              } else if (stockInfo.lowCount > 0) {
-                stockLabel = "Low";
-              } else {
-                stockLabel = "In Stock";
-              }
-            }
-
-            return {
-              i: index + 1,
-              name: entry.name,
-              cat: entry.category,
-              revenue: entry.revenue,
-              sold: entry.sold,
-              stock: stockLabel,
-            };
-          });
-
-        const recentOrdersData = normalizedOrders.slice(0, 6).map((order) => {
-          const detail = detailMap.get(order.order_id);
-          const items = detail?.items || [];
-          const itemCount = items.reduce(
-            (sum, item) => sum + Number(item.quantity || 0),
-            0
+        if (productIdList.length) {
+          const productDetailResults = await Promise.allSettled(
+            productIdList.map((id) => apiGetProduct(id))
           );
-          return {
-            id: `#${order.order_id}`,
-            name: order.customerName,
-            items: itemCount || items.length || "—",
-            total: order.total,
-            status: order.status,
-            time: order.createdAt.fromNow(),
-          };
-        });
 
-        if (cancelled) return;
+          productDetailResults.forEach((result, index) => {
+            if (result.status !== "fulfilled") return;
+            const detail = result.value;
+            const productId = productIdList[index];
+            const variants = detail?.variants || [];
+            let totalUnitsPerProduct = 0;
+            let lowCount = 0;
+            let outCount = 0;
+            variants.forEach((variant) => {
+              const qty = Number(variant.stock || 0);
+              totalUnitsPerProduct += qty;
+              inventoryTotals.variantCount += 1;
+              inventoryTotals.totalUnits += qty;
+              if (qty <= 0) {
+                inventoryTotals.outStockCount += 1;
+                outCount += 1;
+              } else if (qty <= 5) {
+                inventoryTotals.lowStockCount += 1;
+                lowCount += 1;
+              } else {
+                inventoryTotals.inStockCount += 1;
+              }
 
-        setMetrics({
-          revenue: {
-            total: currentMonthRevenue,
-            live: liveRevenue,
-            day: dayRevenue,
-            week: weekRevenue,
-            month: monthRevenue,
-            deltaPct: revenueDeltaPct,
-          },
-          orders: {
-            today: todayOrders.length,
-            deltaPct: orderDeltaPct,
-            activeNow: activeOrdersNow,
-            breakdown: orderBreakdown,
-          },
+              const variantId = Number(variant.variant_id || variant.id);
+              if (variantId) {
+                const cost = Number(variant.cost_price || 0);
+                variantCostMap.set(variantId, cost);
+              }
+            });
+            if (productId != null) {
+              productStocks.set(productId, {
+                totalUnits: totalUnitsPerProduct,
+                lowCount,
+                outCount,
+              });
+            }
+          });
+        }
+
+        const dataset = {
+          orders: normalizedOrders,
+          detailMap,
+          productStocks,
+          variantCostMap,
+          loadedAt: now.toISOString(),
           customers: {
             total: customerFirstOrder.size,
             deltaPct: customerDeltaPct,
@@ -711,9 +871,22 @@ export default function Dashboard() {
             tiers,
           },
           inventory: inventoryTotals,
+        };
+
+        const snapshot = computeDashboardForRange(timeframe, dataset, {
+          now,
+          rangeStart,
+          rangeEnd,
         });
-        setTopProducts(topProductList);
-        setRecentOrders(recentOrdersData);
+
+        if (cancelled) return;
+
+        setBaseData(dataset);
+        if (snapshot) {
+          setMetrics(snapshot.metrics);
+          setTopProducts(snapshot.topProducts);
+          setRecentOrders(snapshot.recentOrders);
+        }
       } catch (err) {
         if (!cancelled) {
           console.error(err);
@@ -733,15 +906,80 @@ export default function Dashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!baseData) return;
+    const now = baseData.loadedAt ? dayjs(baseData.loadedAt) : dayjs();
+    const snapshot = computeDashboardForRange(timeframe, baseData, {
+      now,
+      rangeStart,
+      rangeEnd,
+    });
+    if (snapshot) {
+      setMetrics(snapshot.metrics);
+      setTopProducts(snapshot.topProducts);
+      setRecentOrders(snapshot.recentOrders);
+    }
+  }, [timeframe, baseData, rangeStart, rangeEnd]);
+
   return (
     <div className="min-h-[calc(100vh-64px)] w-full bg-neutral-50">
       <div className="mx-auto max-w-7xl px-6 py-6">
         {/* Heading */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-neutral-900">Dashboard</h1>
-          <p className="text-sm text-neutral-500">
-            Welcome back !. Here's what's happening with your store today.
-          </p>
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-neutral-900">Dashboard</h1>
+            <p className="text-sm text-neutral-500">
+              Welcome back! Here's what's happening with your store today.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+            <div className="inline-flex w-fit flex-wrap items-center gap-3 rounded-full bg-white px-3 py-2 shadow-sm border border-neutral-200 self-end">
+              {RANGE_OPTIONS.map((option) => {
+                const active = option.key === timeframe;
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setTimeframe(option.key)}
+                    className={`px-3 py-1 text-sm font-medium rounded-full transition ${
+                      active
+                        ? "bg-neutral-900 text-white shadow-sm"
+                        : "text-neutral-700 hover:bg-neutral-100"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap items-center gap-3 rounded-full border border-neutral-200 bg-white px-3 py-2 shadow-sm">
+              <label className="text-xs uppercase tracking-wide text-neutral-500">
+                From
+              </label>
+              <input
+                type="date"
+                value={rangeStart}
+                onChange={(e) => onRangeChange("start", e.target.value)}
+                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:outline-none"
+              />
+              <label className="text-xs uppercase tracking-wide text-neutral-500">
+                To
+              </label>
+              <input
+                type="date"
+                value={rangeEnd}
+                onChange={(e) => onRangeChange("end", e.target.value)}
+                className="rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setTimeframe("custom-range")}
+                className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-neutral-800"
+              >
+                Apply Range
+              </button>
+            </div>
+          </div>
         </div>
 
         {error ? (
@@ -761,10 +999,10 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           <Card
             title="Recent Orders"
-            sub="Latest transactions • Hover for details"
+            sub={`Latest transactions • ${rangeWindow.label}`}
             className="xl:col-span-2"
           >
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
               <table className="min-w-full text-sm">
                 <thead className="text-left text-neutral-600">
                   <tr className="[&>th]:px-5 [&>th]:py-3">
@@ -818,51 +1056,53 @@ export default function Dashboard() {
             </div>
           </Card>
 
-          <Card title="Top Selling Products" sub="Hover to see detailed metrics">
-            <ul className="space-y-5">
-              {loading ? (
-                <li className="text-sm text-neutral-500">Loading product performance…</li>
-              ) : topProducts.length === 0 ? (
-                <li className="text-sm text-neutral-500">Not enough sales data yet.</li>
-              ) : (
-                topProducts.map((p) => (
-                  <li key={p.i} className="flex items-center gap-4">
-                    <div className="grid h-10 w-10 place-items-center rounded-full bg-neutral-200 text-sm font-medium text-neutral-700">
-                      {p.i}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-neutral-900">
-                            {p.name}
+          <Card title="Top Selling Products" sub={`Based on ${rangeWindow.label}`}>
+            <div className="max-h-[420px] overflow-y-auto pr-1">
+              <ul className="space-y-5">
+                {loading ? (
+                  <li className="text-sm text-neutral-500">Loading product performance…</li>
+                ) : topProducts.length === 0 ? (
+                  <li className="text-sm text-neutral-500">Not enough sales data yet.</li>
+                ) : (
+                  topProducts.map((p) => (
+                    <li key={p.i} className="flex items-center gap-4">
+                      <div className="grid h-10 w-10 place-items-center rounded-full bg-neutral-200 text-sm font-medium text-neutral-700">
+                        {p.i}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium text-neutral-900">
+                              {p.name}
+                            </div>
+                            <div className="text-xs text-neutral-500">{p.cat}</div>
                           </div>
-                          <div className="text-xs text-neutral-500">{p.cat}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm font-semibold text-neutral-900">
-                            {fmtVND(p.revenue)}
-                          </div>
-                          <div className="text-xs text-neutral-500">
-                            {p.sold.toLocaleString("vi-VN")} sold
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-neutral-900">
+                              {fmtVND(p.revenue)}
+                            </div>
+                            <div className="text-xs text-neutral-500">
+                              {p.sold.toLocaleString("vi-VN")} sold
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-medium ${
-                        p.stock === "Low"
-                          ? "bg-red-600/90 text-white"
-                          : p.stock === "Out"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-neutral-100 text-neutral-800"
-                      }`}
-                    >
-                      {p.stock}
-                    </span>
-                  </li>
-                ))
-              )}
-            </ul>
+                      <span
+                        className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-medium ${
+                          p.stock === "Low"
+                            ? "bg-red-600/90 text-white"
+                            : p.stock === "Out"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-neutral-100 text-neutral-800"
+                        }`}
+                      >
+                        {p.stock}
+                      </span>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
           </Card>
         </div>
       </div>
