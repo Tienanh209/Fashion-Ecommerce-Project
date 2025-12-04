@@ -41,6 +41,45 @@ const MAX_MONTHS = 10;
 const MAX_CATEGORIES = 6;
 const UNCATEGORIZED = "Uncategorized";
 
+const RANGE_OPTIONS = [
+  { key: "day", label: "Day" },
+  { key: "week", label: "Week" },
+  { key: "month", label: "Month" },
+  { key: "year", label: "Year" },
+];
+
+const RANGE_CONFIG = {
+  day: {
+    label: "Today",
+    unit: "day",
+    start: (now) => now.startOf("day"),
+  },
+  week: {
+    label: "This week",
+    unit: "week",
+    start: (now) => now.startOf("week"),
+  },
+  month: {
+    label: "This month",
+    unit: "month",
+    start: (now) => now.startOf("month"),
+  },
+  year: {
+    label: "This year",
+    unit: "year",
+    start: (now) => now.startOf("year"),
+  },
+};
+
+const getRangeWindow = (key, now = dayjs()) => {
+  const cfg = RANGE_CONFIG[key] || RANGE_CONFIG.month;
+  return {
+    start: cfg.start(now),
+    end: now,
+    label: cfg.label,
+  };
+};
+
 function formatPercent(value, fractionDigits = 1, suffix = "%") {
   if (!Number.isFinite(value)) return `0${suffix}`;
   const rounded = value.toFixed(fractionDigits);
@@ -54,11 +93,16 @@ export default function Analytics() {
   const [barData, setBarData] = useState([]);
   const [pieData, setPieData] = useState([]);
   const [topCategories, setTopCategories] = useState([]);
+  const [timeframe, setTimeframe] = useState("month");
+
+  const rangeWindow = getRangeWindow(timeframe);
 
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
+      const now = dayjs();
+      const { start, end } = getRangeWindow(timeframe, now);
       const [ordersRes, categoriesRes] = await Promise.all([
         listOrders({ page: 1, limit: 2000 }),
         listCategories().catch(() => []),
@@ -82,13 +126,20 @@ export default function Analytics() {
       const categoryMap = new Map(categoryEntries);
 
       const validOrders = ordersRaw.filter((order) => order?.created_at);
+      const inRangeOrders = validOrders.filter((order) => {
+        const createdAt = dayjs(order.created_at);
+        return (
+          createdAt.isValid() &&
+          createdAt.isBetween(start, end, "millisecond", "[]")
+        );
+      });
 
       const monthlyRevenue = new Map();
       const monthlyOrdersCount = new Map();
       const monthlyCompletedCount = new Map();
       const monthByOrderId = new Map();
 
-      validOrders.forEach((order) => {
+      inRangeOrders.forEach((order) => {
         const createdAt = dayjs(order.created_at);
         if (!createdAt.isValid()) return;
         const key = createdAt.format("YYYY-MM");
@@ -103,7 +154,7 @@ export default function Analytics() {
         }
       });
 
-      const revenueOrders = validOrders.filter((order) =>
+      const revenueOrders = inRangeOrders.filter((order) =>
         ORDER_REVENUE_STATUSES.has(order.status)
       );
 
@@ -385,7 +436,7 @@ export default function Analytics() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [timeframe]);
 
   useEffect(() => {
     fetchAnalytics();
@@ -395,11 +446,32 @@ export default function Analytics() {
     <div className="min-h-[calc(100vh-64px)] w-full bg-neutral-50">
       <div className="mx-auto max-w-7xl px-6 py-6">
         {/* Heading */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-neutral-900">Analytics</h1>
-          <p className="text-sm text-neutral-500">
-            Deep insights into your store performance and trends
-          </p>
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-neutral-900">Analytics</h1>
+            <p className="text-sm text-neutral-500">
+              Deep insights into your store performance and trends
+            </p>
+          </div>
+          <div className="inline-flex w-fit flex-wrap items-center gap-3 rounded-full bg-white px-3 py-2 shadow-sm border border-neutral-200">
+            {RANGE_OPTIONS.map((option) => {
+              const active = option.key === timeframe;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setTimeframe(option.key)}
+                  className={`px-3 py-1 text-sm font-medium rounded-full transition ${
+                    active
+                      ? "bg-neutral-900 text-white shadow-sm"
+                      : "text-neutral-700 hover:bg-neutral-100"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Stat cards */}
@@ -423,7 +495,7 @@ export default function Analytics() {
 
         {/* Charts */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Card title="Revenue vs Target" sub="Monthly performance comparison">
+          <Card title="Revenue vs Target" sub={`${rangeWindow.label} performance comparison`}>
             <div className="h-72 w-full">
               {barData.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-sm text-neutral-500">
@@ -459,7 +531,7 @@ export default function Analytics() {
             </div>
           </Card>
 
-          <Card title="Sales by Category" sub="Revenue distribution across categories">
+          <Card title="Sales by Category" sub={`${rangeWindow.label} revenue distribution`}>
             <div className="h-72 w-full">
               {pieData.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-sm text-neutral-500">
@@ -508,7 +580,7 @@ export default function Analytics() {
 
         {/* Top categories */}
         <div className="mt-6">
-          <Card title="Top Performing Categories" sub="Revenue share by category">
+          <Card title="Top Performing Categories" sub={`${rangeWindow.label} revenue share by category`}>
             {topCategories.length === 0 ? (
               <div className="py-8 text-center text-sm text-neutral-500">
                 Not enough sales data yet.
