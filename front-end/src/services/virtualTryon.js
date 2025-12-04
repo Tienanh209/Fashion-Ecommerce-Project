@@ -32,6 +32,22 @@ export const generateVirtualTryOn = async ({
   return data;
 };
 
+export const generateVirtualTryOnVideo = async ({
+  imageUrl,
+  historyId,
+  prompt,
+  modelId,
+} = {}) => {
+  const payload = {};
+  if (imageUrl) payload.imageUrl = imageUrl;
+  if (historyId) payload.historyId = historyId;
+  if (prompt) payload.prompt = prompt;
+  if (modelId) payload.videoModelId = modelId;
+  const data = await http.postJSON("/virtual-tryon/video", payload);
+  return data;
+};
+
 export default {
   generateVirtualTryOn,
+  generateVirtualTryOnVideo,
 };

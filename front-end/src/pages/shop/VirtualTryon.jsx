@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router";
 import { SidebarTryon, SidebarHistory } from "../../components";
-import { generateVirtualTryOn } from "../../services/virtualTryon";
+import {
+  generateVirtualTryOn,
+  generateVirtualTryOnVideo,
+} from "../../services/virtualTryon";
 import historyService from "../../services/history";
 import { useAuth } from "../../contexts/AuthContext";
 import { imgUrl } from "../../utils/image";
@@ -83,11 +86,17 @@ function VirtualTryon() {
   const { user, ready } = useAuth();
   const location = useLocation();
   const [generatedImage, setGeneratedImage] = useState("");
+  const [generatedVideo, setGeneratedVideo] = useState("");
   const [notes, setNotes] = useState([]);
   const [error, setError] = useState("");
+  const [videoError, setVideoError] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [videoGenerating, setVideoGenerating] = useState(false);
   const [historyItems, setHistoryItems] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [latestHistoryId, setLatestHistoryId] = useState(null);
+  const [generatedImagePath, setGeneratedImagePath] = useState("");
+  const [activeMedia, setActiveMedia] = useState("image");
 
   const userId = useMemo(() => user?.user_id ?? null, [user]);
   const preselectVariantId = useMemo(() => {
@@ -95,6 +104,14 @@ function VirtualTryon() {
     const value = params.get("variant");
     return value ? value.trim() : null;
   }, [location.search]);
+  const canRequestVideo = useMemo(
+    () => Boolean(latestHistoryId && generatedImagePath),
+    [latestHistoryId, generatedImagePath]
+  );
+  const hasGeneratedImage = Boolean(generatedImage);
+  const hasGeneratedVideo = Boolean(generatedVideo);
+  const showVideo = activeMedia === "video" && hasGeneratedVideo;
+  const showImage = !showVideo && hasGeneratedImage;
 
   const refreshHistory = useCallback(async () => {
     if (!ready || !userId) {
@@ -130,6 +147,12 @@ function VirtualTryon() {
         setError("");
         setNotes([]);
         setGeneratedImage("");
+        setGeneratedVideo("");
+        setVideoError("");
+        setVideoGenerating(false);
+        setLatestHistoryId(null);
+        setGeneratedImagePath("");
+        setActiveMedia("image");
 
         let garmentFile;
         if (topImage && bottomImage) {
@@ -149,6 +172,8 @@ function VirtualTryon() {
 
         if (data?.imageUrl) {
           setGeneratedImage(imgUrl(data.imageUrl));
+          setGeneratedImagePath(data.imageUrl);
+          setActiveMedia("image");
         }
 
         if (Array.isArray(data?.notes) && data.notes.length) {
@@ -164,12 +189,17 @@ function VirtualTryon() {
             });
             if (saved?.history) {
               setHistoryItems((prev) => [saved.history, ...(prev || [])]);
+              setLatestHistoryId(saved.history.history_id || null);
             } else {
               refreshHistory();
+              setLatestHistoryId(null);
             }
           } catch (err) {
             console.warn("[VirtualTryon] Failed to store history", err);
+            setLatestHistoryId(null);
           }
+        } else {
+          setLatestHistoryId(null);
         }
       } catch (err) {
         setError(err?.message || "Failed to generate virtual try-on.");
@@ -180,13 +210,66 @@ function VirtualTryon() {
     [refreshHistory, userId]
   );
 
+  const handleGenerateVideo = useCallback(async () => {
+    if (!generatedImagePath) {
+      setVideoError("Please generate a virtual try-on look first.");
+      return;
+    }
+    if (!latestHistoryId) {
+      setVideoError(
+        "Please wait for the generated image to be saved before creating a video."
+      );
+      return;
+    }
+    try {
+      setVideoGenerating(true);
+      setVideoError("");
+      const data = await generateVirtualTryOnVideo({
+        imageUrl: generatedImagePath,
+        historyId: latestHistoryId,
+      });
+      if (data?.videoUrl) {
+        setGeneratedVideo(imgUrl(data.videoUrl));
+        setActiveMedia("video");
+      }
+      if (data?.history) {
+        setHistoryItems((prev) => {
+          if (!Array.isArray(prev)) return prev;
+          return prev.map((entry) =>
+            entry.history_id === data.history.history_id
+              ? data.history
+              : entry
+          );
+        });
+        setLatestHistoryId(data.history.history_id);
+      } else if (data?.historyId) {
+        setLatestHistoryId(data.historyId);
+      } else {
+        refreshHistory();
+      }
+    } catch (err) {
+      setVideoError(err?.message || "Failed to generate fashion video.");
+    } finally {
+      setVideoGenerating(false);
+    }
+  }, [generatedImagePath, latestHistoryId, refreshHistory]);
+
   const handleHistorySelect = useCallback((entry) => {
     if (!entry) return;
     const image = entry.image_url || entry.imageUrl;
-    if (image) {
-      setGeneratedImage(imgUrl(image));
-      setNotes([]);
-      setError("");
+    if (!image) return;
+    setGeneratedImage(imgUrl(image));
+    setNotes([]);
+    setError("");
+    setGeneratedImagePath(image);
+    setLatestHistoryId(entry.history_id || entry.historyId || null);
+    setVideoError("");
+    if (entry.video_url || entry.videoUrl) {
+      setGeneratedVideo(imgUrl(entry.video_url || entry.videoUrl));
+      setActiveMedia("video");
+    } else {
+      setGeneratedVideo("");
+      setActiveMedia("image");
     }
   }, []);
 
@@ -209,13 +292,89 @@ function VirtualTryon() {
             <div className="text-sm text-neutral-500">
               Generating your virtual outfit…
             </div>
-          ) : generatedImage ? (
+          ) : hasGeneratedImage || hasGeneratedVideo ? (
             <div className="flex w-full flex-col items-center gap-4">
-              <img
-                src={generatedImage}
-                alt="Virtual try-on result"
-                className="w-full max-w-[624px] rounded-3xl object-cover shadow-md"
-              />
+              <div className="w-full max-w-[624px] space-y-3">
+                {hasGeneratedImage && hasGeneratedVideo ? (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveMedia("image")}
+                      className={[
+                        "flex-1 rounded-2xl px-4 py-2 text-sm font-semibold transition",
+                        activeMedia === "image"
+                          ? "bg-neutral-900 text-white"
+                          : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200",
+                      ].join(" ")}
+                    >
+                      View image
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveMedia("video")}
+                      className={[
+                        "flex-1 rounded-2xl px-4 py-2 text-sm font-semibold transition",
+                        activeMedia === "video"
+                          ? "bg-neutral-900 text-white"
+                          : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200",
+                      ].join(" ")}
+                    >
+                      View video
+                    </button>
+                  </div>
+                ) : null}
+                {showVideo ? (
+                  <video
+                    src={generatedVideo}
+                    controls
+                    className="w-full rounded-3xl bg-black shadow-md"
+                  />
+                ) : showImage ? (
+                  <img
+                    src={generatedImage}
+                    alt="Virtual try-on result"
+                    className="w-full rounded-3xl object-cover shadow-md"
+                  />
+                ) : null}
+              </div>
+              {activeMedia !== "video" ? (
+                <div className="w-full max-w-[624px] space-y-3 rounded-2xl border border-neutral-200 bg-white/80 p-4 shadow-sm">
+                  <div>
+                    <p className="text-base font-semibold text-neutral-900">
+                      Runway video
+                    </p>
+                    <p className="text-sm text-neutral-500">
+                      Transform this still image into a short, elegant motion
+                      clip.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGenerateVideo}
+                    disabled={videoGenerating || !canRequestVideo || generating}
+                    className={[
+                      "w-full rounded-xl px-4 py-2 text-sm font-semibold text-white transition",
+                      videoGenerating || !canRequestVideo || generating
+                        ? "cursor-not-allowed bg-neutral-300"
+                        : "bg-neutral-900 hover:bg-neutral-800",
+                    ].join(" ")}
+                  >
+                    {videoGenerating
+                      ? "Generating couture video…"
+                      : "Generate couture video"}
+                  </button>
+                  {!canRequestVideo ? (
+                    <p className="text-xs text-neutral-500">
+                      Save a look (and stay signed in) to unlock video previews.
+                    </p>
+                  ) : null}
+                  {videoError ? (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                      {videoError}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               {notes.length ? (
                 <div className="w-full rounded-2xl bg-neutral-100 p-4 text-sm text-neutral-700">
                   <p className="mb-2 font-medium text-neutral-900">AI notes</p>

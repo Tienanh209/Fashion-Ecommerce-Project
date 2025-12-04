@@ -3,7 +3,7 @@ import { History as HistoryIcon } from "lucide-react";
 import PropTypes from "prop-types";
 import { imgUrl } from "../../utils/image";
 
-function HistoryItem({ image, createdAt, onSelect }) {
+function HistoryItem({ image, video, createdAt, onSelect }) {
   const formatted = useMemo(() => {
     if (!createdAt) return "";
     try {
@@ -20,6 +20,10 @@ function HistoryItem({ image, createdAt, onSelect }) {
     }
   }, [createdAt]);
 
+  const hasVideo = Boolean(video);
+  const imageSrc = imgUrl(image);
+  const videoSrc = hasVideo ? imgUrl(video) : "";
+
   return (
     <button
       type="button"
@@ -27,11 +31,28 @@ function HistoryItem({ image, createdAt, onSelect }) {
       className="flex flex-col gap-2 rounded-2xl bg-white p-3 text-left shadow-sm transition hover:shadow-md"
     >
       <div className="relative w-full overflow-hidden rounded-xl pb-[120%]">
-        <img
-          src={imgUrl(image)}
-          alt="History record"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
+        {hasVideo ? (
+          <video
+            src={videoSrc}
+            poster={imageSrc}
+            className="absolute inset-0 h-full w-full object-cover"
+            playsInline
+            muted
+            loop
+            preload="metadata"
+          />
+        ) : (
+          <img
+            src={imageSrc}
+            alt="History record"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+        {hasVideo ? (
+          <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-xs font-semibold text-white">
+            Video
+          </span>
+        ) : null}
       </div>
       {formatted ? (
         <span className="text-xs font-medium text-neutral-500">{formatted}</span>
@@ -42,6 +63,7 @@ function HistoryItem({ image, createdAt, onSelect }) {
 
 HistoryItem.propTypes = {
   image: PropTypes.string.isRequired,
+  video: PropTypes.string,
   createdAt: PropTypes.string,
   onSelect: PropTypes.func,
 };
@@ -84,6 +106,7 @@ function SidebarHistory({ items, loading, onFetch, onSelect }) {
               <HistoryItem
                 key={entry.history_id || entry.image_url}
                 image={entry.image_url || entry.imageUrl}
+                video={entry.video_url || entry.videoUrl}
                 createdAt={entry.created_at || entry.createdAt}
                 onSelect={() => onSelect?.(entry)}
               />
