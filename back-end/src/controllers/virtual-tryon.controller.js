@@ -7,7 +7,7 @@ const historyService = require("../services/history.service");
 const OUTPUT_DIR = path.join(__dirname, "../../public/virtual-tryon");
 const DEFAULT_PROMPT =
   "Create a professional e-commerce fashion photo with aspect ratio 3:4. Take the clothes from the first image and let the person from the second image wear it. Generate a realistic, full-body shot of the person wearing the clothes while keeping the model's face clear.";
-const DEFAULT_VIDEO_PROMPT = `The video is in a vertical rectangular frame, opening with an eye-level shot focused on the person in the image, keeping the same outfit they are currently wearing.
+const DEFAULT_VIDEO_PROMPT = `The video is the same frame with input image, opening with an eye-level shot focused on the person in the image, keeping the same outfit they are currently wearing.
 They walk with a calm, confident grace against the existing background of the photo. The camera slowly pulls back into a wide shot, gradually revealing the spectacular scene as they turn around in a full spin.
 The cinematic atmosphere is heightened by the vibrant colors of the outfit contrasting with the surroundings, capturing a pure moment of elegance and high-fashion, dreamlike beauty.`;
 const VIDEO_POLL_INTERVAL_MS =
@@ -46,7 +46,10 @@ function detectMimeType(filePath) {
 
 function resolveGeneratedImagePath(imageUrl) {
   if (typeof imageUrl !== "string" || !imageUrl.startsWith(SAFE_IMAGE_PREFIX)) {
-    throw new ApiError(400, "imageUrl must reference a generated try-on result");
+    throw new ApiError(
+      400,
+      "imageUrl must reference a generated try-on result"
+    );
   }
   const relative = imageUrl.replace(/^\/+/, "");
   const candidate = path.normalize(

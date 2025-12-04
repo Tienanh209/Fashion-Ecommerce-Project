@@ -294,7 +294,7 @@ function VirtualTryon() {
             </div>
           ) : hasGeneratedImage || hasGeneratedVideo ? (
             <div className="flex w-full flex-col items-center gap-4">
-              <div className="w-full max-w-[624px] space-y-3">
+              <div className="w-full max-w-[550px] space-y-3">
                 {hasGeneratedImage && hasGeneratedVideo ? (
                   <div className="flex gap-2">
                     <button
@@ -324,11 +324,13 @@ function VirtualTryon() {
                   </div>
                 ) : null}
                 {showVideo ? (
-                  <video
-                    src={generatedVideo}
-                    controls
-                    className="w-full rounded-3xl bg-black shadow-md"
-                  />
+                  <div className="mx-auto w-full max-w-[420px] rounded-3xl bg-black shadow-md overflow-hidden">
+                    <video
+                      src={generatedVideo}
+                      controls
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
                 ) : showImage ? (
                   <img
                     src={generatedImage}
