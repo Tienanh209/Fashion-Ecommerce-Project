@@ -9,5 +9,7 @@ module.exports.setup = (app) => {
   app.use("/virtual-tryon", router);
 
   router.post("/", tryonUpload, virtualTryonController.generateVirtualTryOn);
+  router.post("/video", virtualTryonController.generateVirtualTryOnVideo);
   router.all("/", methodNotAllowed);
+  router.all("/video", methodNotAllowed);
 };

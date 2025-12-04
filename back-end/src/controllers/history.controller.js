@@ -25,13 +25,14 @@ async function storeHistory(req, res, next) {
       throw new ApiError(400, "Invalid user ID");
     }
 
-    const { imageUrl } = req.body || {};
+    const { imageUrl, videoUrl } = req.body || {};
     if (!imageUrl) {
       throw new ApiError(400, "imageUrl is required");
     }
 
     const created = await historyService.addHistoryEntry(user_id, {
       image_url: imageUrl,
+      video_url: videoUrl,
     });
 
     return res.status(201).json(JSend.success({ history: created }));

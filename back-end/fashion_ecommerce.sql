@@ -165,6 +165,15 @@ CREATE TABLE history_images (
   CONSTRAINT fk_history_user FOREIGN KEY (user_id) REFERENCES users(user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE history_videos (
+  history_video_id INT AUTO_INCREMENT PRIMARY KEY,
+  history_id INT NOT NULL UNIQUE,
+  video_url VARCHAR(255) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_history_videos_history FOREIGN KEY (history_id) REFERENCES history_images(history_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Suppliers
 CREATE TABLE suppliers (
   supplier_id INT AUTO_INCREMENT PRIMARY KEY,
