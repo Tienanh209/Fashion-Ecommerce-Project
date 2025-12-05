@@ -12,7 +12,12 @@ export const addHistory = async (userId, { imageUrl }) => {
   return http.postJSON(`/users/${userId}/history`, { imageUrl });
 };
 
+export const deleteHistory = async (userId, historyId) => {
+  return http.deleteJSON(`/users/${userId}/history/${historyId}`);
+};
+
 export default {
   fetchHistory,
   addHistory,
+  deleteHistory,
 };

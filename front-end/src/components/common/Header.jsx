@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useFavorites } from "../../contexts/FavoritesContext";
 import { imgUrl } from "../../utils/image";
@@ -49,6 +49,15 @@ function getUserInitials(info) {
   return "??";
 }
 
+function getAvatarSource(info) {
+  if (!info) return "";
+  const candidate =
+    info.avatar_url ||
+    info?.user?.avatar_url ||
+    "";
+  return candidate ? imgUrl(candidate) : "";
+}
+
 export default function Header() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -60,6 +69,7 @@ export default function Header() {
   const [hasNewOrder, setHasNewOrder] = useState(
     () => localStorage.getItem("hasNewOrder") === "1"
   );
+  const avatarSrc = useMemo(() => getAvatarSource(user), [user]);
 
   // Search
   const onSubmit = (e) => {
@@ -180,18 +190,17 @@ export default function Header() {
               className="relative p-1 rounded-full hover:bg-gray-100 transition-colors"
             >
               {user ? (
-                user?.avatar_url
-                  ? (
-                    <img
-                      src={imgUrl(user.avatar_url)}
-                      alt="avatar"
-                      className="h-10 w-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-md font-semibold uppercase text-gray-700">
-                      {getUserInitials(user)}
-                    </span>
-                  )
+                avatarSrc ? (
+                  <img
+                    src={avatarSrc}
+                    alt="avatar"
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-md font-semibold uppercase text-gray-700">
+                    {getUserInitials(user)}
+                  </span>
+                )
               ) : (
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

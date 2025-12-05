@@ -69,8 +69,29 @@ async function updateHistoryVideo(historyId, videoUrl) {
   return getHistoryById(historyId);
 }
 
+async function deleteHistoryEntry(userId, historyId) {
+  if (!Number(userId) || !Number(historyId)) {
+    return false;
+  }
+
+  return knex.transaction(async (trx) => {
+    const existing = await trx("history_images")
+      .where({ user_id: userId, history_id: historyId })
+      .first();
+
+    if (!existing) {
+      return false;
+    }
+
+    await trx("history_videos").where({ history_id: historyId }).del();
+    await trx("history_images").where({ history_id: historyId }).del();
+    return true;
+  });
+}
+
 module.exports = {
   listHistoryByUser,
   addHistoryEntry,
   updateHistoryVideo,
+  deleteHistoryEntry,
 };

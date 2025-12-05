@@ -41,7 +41,31 @@ async function storeHistory(req, res, next) {
   }
 }
 
+async function deleteHistory(req, res, next) {
+  try {
+    const { user_id, history_id } = req.params;
+
+    if (!Number(user_id) || !Number(history_id)) {
+      throw new ApiError(400, "Invalid identifier");
+    }
+
+    const deleted = await historyService.deleteHistoryEntry(
+      Number(user_id),
+      Number(history_id)
+    );
+
+    if (!deleted) {
+      throw new ApiError(404, "History entry not found");
+    }
+
+    return res.json(JSend.success({ deleted: true }));
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   getUserHistory,
   storeHistory,
+  deleteHistory,
 };

@@ -82,6 +82,17 @@ async function mergeOutfitImages(topPath, bottomPath) {
   });
 }
 
+const parseHistoryId = (value) => {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? value : parsed;
+};
+
+const getEntryHistoryId = (entry) => {
+  if (!entry) return null;
+  return parseHistoryId(entry.history_id ?? entry.historyId ?? null);
+};
+
 function VirtualTryon() {
   const { user, ready } = useAuth();
   const location = useLocation();
@@ -97,6 +108,8 @@ function VirtualTryon() {
   const [latestHistoryId, setLatestHistoryId] = useState(null);
   const [generatedImagePath, setGeneratedImagePath] = useState("");
   const [activeMedia, setActiveMedia] = useState("image");
+  const [historyDeletingId, setHistoryDeletingId] = useState(null);
+  const [pendingDeleteEntry, setPendingDeleteEntry] = useState(null);
 
   const userId = useMemo(() => user?.user_id ?? null, [user]);
   const preselectVariantId = useMemo(() => {
@@ -189,7 +202,7 @@ function VirtualTryon() {
             });
             if (saved?.history) {
               setHistoryItems((prev) => [saved.history, ...(prev || [])]);
-              setLatestHistoryId(saved.history.history_id || null);
+              setLatestHistoryId(getEntryHistoryId(saved.history));
             } else {
               refreshHistory();
               setLatestHistoryId(null);
@@ -236,14 +249,14 @@ function VirtualTryon() {
         setHistoryItems((prev) => {
           if (!Array.isArray(prev)) return prev;
           return prev.map((entry) =>
-            entry.history_id === data.history.history_id
+            getEntryHistoryId(entry) === getEntryHistoryId(data.history)
               ? data.history
               : entry
           );
         });
-        setLatestHistoryId(data.history.history_id);
+        setLatestHistoryId(getEntryHistoryId(data.history));
       } else if (data?.historyId) {
-        setLatestHistoryId(data.historyId);
+        setLatestHistoryId(parseHistoryId(data.historyId));
       } else {
         refreshHistory();
       }
@@ -262,7 +275,7 @@ function VirtualTryon() {
     setNotes([]);
     setError("");
     setGeneratedImagePath(image);
-    setLatestHistoryId(entry.history_id || entry.historyId || null);
+    setLatestHistoryId(getEntryHistoryId(entry));
     setVideoError("");
     if (entry.video_url || entry.videoUrl) {
       setGeneratedVideo(imgUrl(entry.video_url || entry.videoUrl));
@@ -272,6 +285,46 @@ function VirtualTryon() {
       setActiveMedia("image");
     }
   }, []);
+
+  const performHistoryDelete = useCallback(
+    async (entry) => {
+      if (!entry || !userId) return;
+      const historyId = getEntryHistoryId(entry);
+      if (!historyId) return;
+      try {
+        setHistoryDeletingId(historyId);
+        await historyService.deleteHistory(userId, historyId);
+        setHistoryItems((prev) =>
+          Array.isArray(prev)
+            ? prev.filter((item) => getEntryHistoryId(item) !== historyId)
+            : prev
+        );
+        if (latestHistoryId === historyId) {
+          setLatestHistoryId(null);
+        }
+      } catch (err) {
+        console.warn("[VirtualTryon] Failed to delete history entry", err);
+      } finally {
+        setHistoryDeletingId(null);
+      }
+    },
+    [latestHistoryId, userId]
+  );
+
+  const requestHistoryDelete = useCallback((entry) => {
+    setPendingDeleteEntry(entry || null);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!pendingDeleteEntry) return;
+    await performHistoryDelete(pendingDeleteEntry);
+    setPendingDeleteEntry(null);
+  }, [pendingDeleteEntry, performHistoryDelete]);
+
+  const handleCancelDelete = useCallback(() => {
+    if (historyDeletingId) return;
+    setPendingDeleteEntry(null);
+  }, [historyDeletingId]);
 
   return (
     <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
@@ -408,8 +461,48 @@ function VirtualTryon() {
           loading={historyLoading}
           onFetch={refreshHistory}
           onSelect={handleHistorySelect}
+          onDelete={requestHistoryDelete}
+          deletingId={historyDeletingId}
         />
       </aside>
+      {pendingDeleteEntry ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <p className="text-lg font-semibold text-neutral-900">Delete history</p>
+            <p className="mt-2 text-sm text-neutral-600">
+              Do you want to delete this image/video?
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleCancelDelete}
+                disabled={
+                  !!historyDeletingId &&
+                  historyDeletingId === getEntryHistoryId(pendingDeleteEntry)
+                }
+                className="rounded-full border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={
+                  !userId ||
+                  (historyDeletingId !== null &&
+                    historyDeletingId === getEntryHistoryId(pendingDeleteEntry))
+                }
+                className="rounded-full bg-neutral-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
+              >
+                {historyDeletingId &&
+                historyDeletingId === getEntryHistoryId(pendingDeleteEntry)
+                  ? "Deleting..."
+                  : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

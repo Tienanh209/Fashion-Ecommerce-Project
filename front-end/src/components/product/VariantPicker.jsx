@@ -35,6 +35,20 @@ const INCH_TABLE = [
   { label: "Inseam", values: ["30.5", "30.7", "31", "31.1", "31.2", "31.5", "31.7"] },
 ];
 
+const NUMERIC_TABLE_HEADERS = ["27", "28", "29", "30", "31", "32", "33", "34", "35", "36"];
+
+const NUMERIC_CM_TABLE = [
+  { label: "Waist", values: ["68-70", "70-72", "73-75", "76-78", "79-81", "82-84", "85-87", "88-90", "91-93", "94-96"] },
+  { label: "Hip", values: ["90-92", "92-94", "94-96", "96-99", "100-102", "103-105", "106-108", "109-111", "112-114", "115-117"] },
+  { label: "Inseam", values: ["79", "79", "79.5", "80", "80", "80.5", "81", "81", "81.5", "82"] },
+];
+
+const NUMERIC_INCH_TABLE = [
+  { label: "Waist", values: ["26.5-27.5", "27.5-28.5", "28.5-29.5", "29.5-30.5", "30.5-31.5", "31.5-32.5", "32.5-33.5", "33.5-34.5", "34.5-35.5", "35.5-36.5"] },
+  { label: "Hip", values: ["35.5-36.5", "36.5-37.5", "37.5-38.5", "38.5-39.5", "39.5-40.5", "40.5-41.5", "41.5-42.5", "42.5-43.5", "43.5-44.5", "44.5-46"] },
+  { label: "Inseam", values: ["31", "31", "31.2", "31.5", "31.5", "31.7", "32", "32", "32.2", "32.5"] },
+];
+
 export default function VariantPicker({ variants = [], value, onChange }) {
   const colors = useMemo(
     () => [...new Set(variants.map((v) => v.color).filter(Boolean))],
@@ -46,12 +60,25 @@ export default function VariantPicker({ variants = [], value, onChange }) {
   );
   const [showGuide, setShowGuide] = useState(false);
   const [guideUnit, setGuideUnit] = useState("cm");
+  const hasNumericSizes = useMemo(
+    () =>
+      sizes.some((size) => {
+        const numeric = Number(size);
+        return Number.isFinite(numeric) && numeric >= 27 && numeric <= 36;
+      }),
+    [sizes]
+  );
 
   const setColor = (color) => onChange({ ...value, color });
   const setSize = (size) => onChange({ ...value, size });
 
-  const tableHeaders = ["2XS", "XS", "S", "M", "L", "XL", "2XL"];
-  const currentTable = guideUnit === "cm" ? CM_TABLE : INCH_TABLE;
+  const tableHeaders = hasNumericSizes ? NUMERIC_TABLE_HEADERS : ["2XS", "XS", "S", "M", "L", "XL", "2XL"];
+  const currentTable = (() => {
+    if (hasNumericSizes) {
+      return guideUnit === "cm" ? NUMERIC_CM_TABLE : NUMERIC_INCH_TABLE;
+    }
+    return guideUnit === "cm" ? CM_TABLE : INCH_TABLE;
+  })();
 
   return (
     <div className="space-y-6">

@@ -9,7 +9,9 @@ function setup(app) {
 
   router.get("/", historyController.getUserHistory);
   router.post("/", historyController.storeHistory);
+  router.delete("/:history_id", historyController.deleteHistory);
   router.all("/", methodNotAllowed);
+  router.all("/:history_id", methodNotAllowed);
 }
 
 module.exports = { setup };

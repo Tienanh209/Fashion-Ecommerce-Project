@@ -1,9 +1,16 @@
 import { useEffect, useMemo } from "react";
-import { History as HistoryIcon } from "lucide-react";
+import { History as HistoryIcon, X as CloseIcon } from "lucide-react";
 import PropTypes from "prop-types";
 import { imgUrl } from "../../utils/image";
 
-function HistoryItem({ image, video, createdAt, onSelect }) {
+function HistoryItem({
+  image,
+  video,
+  createdAt,
+  onSelect,
+  onDelete,
+  deleting,
+}) {
   const formatted = useMemo(() => {
     if (!createdAt) return "";
     try {
@@ -24,40 +31,63 @@ function HistoryItem({ image, video, createdAt, onSelect }) {
   const imageSrc = imgUrl(image);
   const videoSrc = hasVideo ? imgUrl(video) : "";
 
+  const handleDelete = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!onDelete || deleting) return;
+    onDelete();
+  };
+
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className="flex flex-col gap-2 rounded-2xl bg-white p-3 text-left shadow-sm transition hover:shadow-md"
-    >
-      <div className="relative w-full overflow-hidden rounded-xl pb-[120%]">
-        {hasVideo ? (
-          <video
-            src={videoSrc}
-            poster={imageSrc}
-            className="absolute inset-0 h-full w-full object-cover"
-            playsInline
-            muted
-            loop
-            preload="metadata"
-          />
-        ) : (
-          <img
-            src={imageSrc}
-            alt="History record"
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-        )}
-        {hasVideo ? (
-          <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-xs font-semibold text-white">
-            Video
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onSelect}
+        className="flex w-full flex-col gap-2 rounded-2xl bg-white p-3 text-left shadow-sm transition hover:shadow-md"
+      >
+        <div className="relative w-full overflow-hidden rounded-xl pb-[120%]">
+          {hasVideo ? (
+            <video
+              src={videoSrc}
+              poster={imageSrc}
+              className="absolute inset-0 h-full w-full object-cover"
+              playsInline
+              muted
+              loop
+              preload="metadata"
+            />
+          ) : (
+            <img
+              src={imageSrc}
+              alt="History record"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          )}
+          {hasVideo ? (
+            <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-xs font-semibold text-white">
+              Video
+            </span>
+          ) : null}
+        </div>
+        {formatted ? (
+          <span className="text-xs font-medium text-neutral-500">
+            {formatted}
           </span>
         ) : null}
-      </div>
-      {formatted ? (
-        <span className="text-xs font-medium text-neutral-500">{formatted}</span>
-      ) : null}
-    </button>
+      </button>
+      <button
+        type="button"
+        aria-label="Delete history entry"
+        disabled={deleting}
+        onClick={handleDelete}
+        className={[
+          "absolute -right-2 -top-2 grid h-7 w-7 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-500 shadow-sm transition hover:text-red-500",
+          deleting ? "cursor-not-allowed opacity-70" : "",
+        ].join(" ")}
+      >
+        <CloseIcon className="h-4 w-4" />
+      </button>
+    </div>
   );
 }
 
@@ -66,6 +96,8 @@ HistoryItem.propTypes = {
   video: PropTypes.string,
   createdAt: PropTypes.string,
   onSelect: PropTypes.func,
+  onDelete: PropTypes.func,
+  deleting: PropTypes.bool,
 };
 
 function EmptyHistory() {
@@ -76,10 +108,20 @@ function EmptyHistory() {
   );
 }
 
-function SidebarHistory({ items, loading, onFetch, onSelect }) {
+function SidebarHistory({
+  items,
+  loading,
+  onFetch,
+  onSelect,
+  onDelete,
+  deletingId,
+}) {
   useEffect(() => {
     onFetch?.();
   }, [onFetch]);
+
+  const deletingIdString =
+    deletingId === null || deletingId === undefined ? null : String(deletingId);
 
   return (
     <aside
@@ -109,6 +151,11 @@ function SidebarHistory({ items, loading, onFetch, onSelect }) {
                 video={entry.video_url || entry.videoUrl}
                 createdAt={entry.created_at || entry.createdAt}
                 onSelect={() => onSelect?.(entry)}
+                onDelete={() => onDelete?.(entry)}
+                deleting={
+                  Boolean(deletingIdString) &&
+                  String(entry.history_id || entry.historyId) === deletingIdString
+                }
               />
             ))}
           </div>
@@ -123,6 +170,8 @@ SidebarHistory.propTypes = {
   loading: PropTypes.bool,
   onFetch: PropTypes.func,
   onSelect: PropTypes.func,
+  onDelete: PropTypes.func,
+  deletingId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
 };
 
 export default SidebarHistory;
