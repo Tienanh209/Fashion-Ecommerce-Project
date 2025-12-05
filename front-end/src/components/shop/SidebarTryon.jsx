@@ -72,14 +72,54 @@ const TOP_CATEGORY_SLUGS = new Set(["t-shirts", "t-shirt", "shirts", "shirt", "j
 const BOTTOM_CATEGORY_SLUGS = new Set(["shorts", "short", "jeans", "denim", "pants", "trousers", "bottoms"]);
 const FALLBACK_IMAGE = "/images/image.png";
 const BACKGROUND_OPTIONS = [
-  { id: "beach", label: "Beach", image: "/background/beach.png" },
-  { id: "mountain", label: "Mountain", image: "/background/mountain.png" },
-  { id: "street", label: "Street", image: "/background/street.png" },
-  { id: "restaurant", label: "Restaurant", image: "/background/restaurant.png" },
+  {
+    id: "beach",
+    label: "Beach",
+  },
+  {
+    id: "mountain",
+    label: "Mountain",
+  },
+  {
+    id: "street",
+    label: "Street",
+  },
+  {
+    id: "restaurant",
+    label: "Restaurant",
+  },
+  {
+    id: "city-night",
+    label: "City Night",
+  },
+  {
+    id: "studio",
+    label: "Photo Studio",
+  },
+  {
+    id: "garden",
+    label: "Garden",
+  },
 ];
 
 function resolveDetailImage(detail) {  
   return (imgUrl(detail.product.thumbnail)) || FALLBACK_IMAGE;
+}
+
+function buildGalleryItems(detail, baseId, excludeImage) {
+  const galleries = Array.isArray(detail?.galleries) ? detail.galleries : [];
+  return galleries
+    .map((gallery, index) => {
+      const raw = gallery?.image_url || gallery?.thumbnail || "";
+      if (!raw) return null;
+      const resolved = imgUrl(raw);
+      if (!resolved || resolved === excludeImage) return null;
+      return {
+        id: `${baseId}-gallery-${gallery?.gallery_id || index}`,
+        image: resolved,
+      };
+    })
+    .filter(Boolean);
 }
 
 function UploadCard({ title, helperLink, onClick, preview }) {
@@ -95,7 +135,7 @@ function UploadCard({ title, helperLink, onClick, preview }) {
             <img
               src={preview}
               alt="Selected model"
-              className="aspect-2/3 h-60 rounded-xl object-cover"
+            className="aspect-2/3 h-52 rounded-xl object-cover"
             />
             <span className="text-sm text-neutral-500">Change model</span>
           </div>
@@ -149,20 +189,13 @@ function BackgroundCard({ option, selected, onClick }) {
       type="button"
       onClick={onClick}
       className={[
-        "group flex flex-col items-center gap-2 rounded-2xl bg-white p-3 text-sm text-neutral-700 shadow-sm transition",
+        "group flex flex-col items-stretch gap-3 rounded-2xl bg-white p-4 text-left text-sm text-neutral-700 shadow-sm transition",
         selected
           ? "border-2 border-neutral-900 ring-neutral-900 ring-offset-2 ring-offset-neutral-100"
           : "border border-transparent hover:border-neutral-200 hover:shadow-md",
       ].join(" ")}
     >
-      <div className="h-20 w-20 overflow-hidden rounded-xl">
-        <img
-          src={option.image}
-          alt={option.label}
-          className="h-full w-full object-cover transition group-hover:scale-105"
-        />
-      </div>
-      <span className="font-medium">{option.label}</span>
+      <span className="font-large w-full text-center">{option.label}</span>
     </button>
   );
 }
@@ -297,6 +330,7 @@ export default function SidebarTryon({
   const [backgroundId, setBackgroundId] = useState(
     BACKGROUND_OPTIONS[0]?.id || ""
   );
+  const [backgroundNote, setBackgroundNote] = useState("");
   const [hour, setHour] = useState(7);
   const [isPm, setIsPm] = useState(false);
   const fileInputRef = useRef(null);
@@ -331,8 +365,8 @@ export default function SidebarTryon({
     () => `${hour === 12 ? 12 : hour % 12 || 12} ${isPm ? "p.m" : "a.m"}`,
     [hour, isPm]
   );
-  const topScrollable = topItems.length > 4;
-  const bottomScrollable = bottomItems.length > 4;
+  const topScrollable = topItems.length > 3;
+  const bottomScrollable = bottomItems.length > 3;
   const onePieceScrollable = combinedItems.length > 4;
 
   useEffect(() => {
@@ -384,6 +418,7 @@ export default function SidebarTryon({
       setFormError("Please choose a background scene.");
       return;
     }
+    const backgroundRequest = backgroundNote.trim();
     setFormError("");
     if (mixClothes) {
       if (!selectedTopItem || !selectedBottomItem) {
@@ -395,6 +430,7 @@ export default function SidebarTryon({
         topImage: selectedTopItem.image,
         bottomImage: selectedBottomItem.image,
         background: selectedBackground.label,
+        backgroundRequest,
         time: formattedTime,
       });
     } else {
@@ -406,6 +442,7 @@ export default function SidebarTryon({
         modelFile,
         garmentImage: selectedOnePieceItem.image,
         background: selectedBackground.label,
+        backgroundRequest,
         time: formattedTime,
       });
     }
@@ -464,10 +501,17 @@ export default function SidebarTryon({
             image: resolveDetailImage(detail),
           };
 
+          let targetList = null;
           if (TOP_CATEGORY_SLUGS.has(slug)) {
-            nextTop.push(item);
+            targetList = nextTop;
           } else if (BOTTOM_CATEGORY_SLUGS.has(slug)) {
-            nextBottom.push(item);
+            targetList = nextBottom;
+          }
+
+          if (targetList) {
+            targetList.push(item);
+            const galleryItems = buildGalleryItems(detail, item.id, item.image);
+            galleryItems.forEach((galleryItem) => targetList.push(galleryItem));
           }
         });
 
@@ -532,8 +576,8 @@ export default function SidebarTryon({
         onChange={handleModelUpload}
       />
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,260px)]">
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <SectionHeader icon={Plus} title="Upload model's image" />
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <SectionHeader icon={Plus} title="Upload your image" />
           <UploadCard
             title="Select human model"
             helperLink="Model templates"
@@ -541,7 +585,7 @@ export default function SidebarTryon({
             preview={modelPreview}
           />
         </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
           <SectionHeader icon={Sun} title="Choose background" />
           <BackgroundGrid
             options={BACKGROUND_OPTIONS}
@@ -551,22 +595,35 @@ export default function SidebarTryon({
               setFormError("");
             }}
           />
-          <button
-            type="button"
-            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-neutral-500 hover:text-neutral-700"
-          >
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-neutral-100 text-xs font-semibold text-neutral-700">
-              +
-            </span>
-            Show more
-          </button>
+          <div className="mt-4 space-y-2">
+            <label
+              htmlFor="custom-background"
+              className="text-sm font-medium text-neutral-700"
+            >
+              Describe your ideal background
+            </label>
+            <input
+              id="custom-background"
+              type="text"
+              value={backgroundNote}
+              onChange={(event) => {
+                setBackgroundNote(event.target.value);
+                setFormError("");
+              }}
+              placeholder="Eg. sunset rooftop, neon-lit alley…"
+              className="w-full rounded-2xl border border-neutral-200 px-4 py-2 text-sm text-neutral-800 focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+            />
+            <p className="text-xs text-neutral-500">
+              Optional note that helps us recreate the vibe you have in mind.
+            </p>
+          </div>
         </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-[1.1fr_minmax(0,1fr)]">
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <div className="rounded-2xl bg-white p-5 shadow-sm min-w-0">
           <SectionHeader icon={Handbag} title="Choose your clothes" />
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="flex justify-start">
               <Segmented
                 value={mixClothes}
@@ -611,7 +668,7 @@ export default function SidebarTryon({
                   </Pill>
                   <div
                     className={
-                      topScrollable ? "max-h-60 overflow-y-auto pr-1" : ""
+                      topScrollable ? "max-h-60 overflow-y-auto" : ""
                     }
                   >
                     <ItemsGrid
@@ -631,7 +688,7 @@ export default function SidebarTryon({
                   </Pill>
                   <div
                     className={
-                      bottomScrollable ? "max-h-60 overflow-y-auto pr-1" : ""
+                      bottomScrollable ? "max-h-60 overflow-y-auto" : ""
                     }
                   >
                     <ItemsGrid
@@ -660,6 +717,7 @@ export default function SidebarTryon({
                     items={combinedItems}
                     emptyText="Add items to your cart to preview looks."
                     selectedId={selectedOnePieceId}
+                    layout="two-row"
                     onSelect={(id) => {
                       setFormError("");
                       setSelectedOnePieceId((prev) => (prev === id ? null : id));
@@ -705,7 +763,7 @@ export default function SidebarTryon({
   );
 }
 
-function ItemsGrid({ items, emptyText, selectedId, onSelect }) {
+function ItemsGrid({ items, emptyText, selectedId, onSelect, layout = "single-row" }) {
   if (!items.length) {
     return (
       <div className="rounded-xl border border-dashed border-neutral-300 bg-white/60 p-4 text-sm text-neutral-500">
@@ -714,10 +772,13 @@ function ItemsGrid({ items, emptyText, selectedId, onSelect }) {
     );
   }
 
+  const containerClass =
+    layout === "two-row"
+      ? "grid auto-cols-max grid-flow-col grid-rows-2 gap-4 overflow-x-auto"
+      : "flex gap-4 overflow-x-auto";
+
   return (
-    <div
-      className={"grid grid-cols-3 gap-x-20 gap-y-5 overflow-x-auto"}
-    >
+    <div className={containerClass}>
       {items.map((item) => (
         <ImageCard
           key={item.id}
@@ -737,7 +798,7 @@ function ImageCard({ image, selected, onClick }) {
       type="button"
       onClick={onClick}
       className={[
-        "group inline-flex h-20 w-20 items-center justify-center rounded-xl border bg-white shadow-sm transition hover:shadow-md",
+        "group inline-flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl border bg-white shadow-sm transition hover:shadow-md",
         selected
           ? "border-neutral-900 ring-2 ring-neutral-900"
           : "border-neutral-200",
