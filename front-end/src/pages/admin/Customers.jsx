@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Crown } from "lucide-react";
+import { Search, Crown, History as HistoryIcon, X } from "lucide-react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { listUsers } from "../../services/users";
 import { listOrders } from "../../services/orders";
+import { fetchHistory } from "../../services/history";
+import { imgUrl } from "../../utils/image";
 
 dayjs.extend(relativeTime);
 
@@ -65,6 +67,17 @@ function TierBadge({ tier }) {
   );
 }
 
+const normalizeHistoryItems = (payload) => {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.history)) return payload.history;
+  if (Array.isArray(payload.items)) return payload.items;
+  if (Array.isArray(payload.data?.history)) return payload.data.history;
+  if (Array.isArray(payload.data?.items)) return payload.data.items;
+  if (Array.isArray(payload.results)) return payload.results;
+  return [];
+};
+
 export default function Customers() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -75,6 +88,10 @@ export default function Customers() {
   const [ordersError, setOrdersError] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [historyModalUser, setHistoryModalUser] = useState(null);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -146,6 +163,35 @@ export default function Customers() {
       cancel = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!historyModalUser) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        setHistoryLoading(true);
+        setHistoryError("");
+        const res = await fetchHistory(historyModalUser.user_id, { limit: 60 });
+        if (cancelled) return;
+        setHistoryItems(normalizeHistoryItems(res));
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setHistoryItems([]);
+          setHistoryError(e?.message || "Failed to load try-on history");
+        }
+      } finally {
+        if (!cancelled) {
+          setHistoryLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [historyModalUser]);
 
   const ordersByUser = useMemo(() => {
     const map = new Map();
@@ -231,6 +277,19 @@ export default function Customers() {
   const isBusy = loading || ordersLoading;
   const tableError = error || (ordersError && users.length === 0);
 
+  const openHistoryModal = (row) => {
+    setHistoryModalUser(row);
+    setHistoryItems([]);
+    setHistoryError("");
+  };
+
+  const closeHistoryModal = () => {
+    setHistoryModalUser(null);
+    setHistoryItems([]);
+    setHistoryError("");
+    setHistoryLoading(false);
+  };
+
   return (
     <div className="min-h-[calc(100vh-64px)] w-full bg-neutral-50">
       <div className="mx-auto max-w-7xl px-6 py-6">
@@ -288,24 +347,25 @@ export default function Customers() {
                   <th>Total Spent</th>
                   <th>Orders</th>
                   <th>Last Purchase</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200">
                 {isBusy ? (
                   <tr>
-                    <td colSpan={7} className="px-5 py-6 text-center text-neutral-500">
+                    <td colSpan={8} className="px-5 py-6 text-center text-neutral-500">
                       Loading…
                     </td>
                   </tr>
                 ) : tableError ? (
                   <tr>
-                    <td colSpan={7} className="px-5 py-6 text-center text-red-600">
+                    <td colSpan={8} className="px-5 py-6 text-center text-red-600">
                       {tableError}
                     </td>
                   </tr>
                 ) : tableRows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-5 py-6 text-center text-neutral-500">
+                    <td colSpan={8} className="px-5 py-6 text-center text-neutral-500">
                       No customers found.
                     </td>
                   </tr>
@@ -334,6 +394,16 @@ export default function Customers() {
                       <td className="px-5 py-4">{fmtVND(r.spent)}</td>
                       <td className="px-5 py-4">{r.orders}</td>
                       <td className="px-5 py-4 text-neutral-700">{r.last}</td>
+                      <td className="px-5 py-4">
+                        <button
+                          type="button"
+                          onClick={() => openHistoryModal(r)}
+                          className="inline-flex items-center gap-1 rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-300"
+                        >
+                          <HistoryIcon className="h-3.5 w-3.5" />
+                          Try-on History
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -344,6 +414,99 @@ export default function Customers() {
 
         <div className="h-6" />
       </div>
+
+      {historyModalUser ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-neutral-200 px-6 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  Virtual Try-on History
+                </p>
+                <p className="text-lg font-semibold text-neutral-900">{historyModalUser.name}</p>
+                <p className="text-sm text-neutral-500">{historyModalUser.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeHistoryModal}
+                className="text-neutral-500 transition hover:text-neutral-800"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
+              {historyLoading ? (
+                <div className="py-10 text-center text-sm text-neutral-500">
+                  Đang tải lịch sử try-on…
+                </div>
+              ) : historyError ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  {historyError}
+                </div>
+              ) : historyItems.length === 0 ? (
+                <div className="py-10 text-center text-sm text-neutral-500">
+                  Người dùng chưa có lịch sử Virtual Try-on.
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {historyItems.map((item, idx) => {
+                    const key =
+                      item.history_id ||
+                      item.id ||
+                      item.image_url ||
+                      item.imageUrl ||
+                      `history-${idx}`;
+                    const imageSrc = imgUrl(item.image_url || item.imageUrl);
+                    const videoSrc = imgUrl(item.video_url || item.videoUrl);
+                    const hasVideo = Boolean(item.video_url || item.videoUrl);
+                    const createdAt = item.created_at || item.createdAt;
+                    const timestamp = createdAt
+                      ? dayjs(createdAt).format("HH:mm, DD MMM YYYY")
+                      : "Không rõ thời gian";
+                    return (
+                      <div
+                        key={key}
+                        className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50"
+                      >
+                        <div className="relative w-full pb-[125%]">
+                          {hasVideo ? (
+                            <video
+                              src={videoSrc}
+                              poster={imageSrc || undefined}
+                              className="absolute inset-0 h-full w-full object-cover"
+                              controls
+                              muted
+                            />
+                          ) : imageSrc ? (
+                            <img
+                              src={imageSrc}
+                              alt="Kết quả try-on"
+                              className="absolute inset-0 h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 grid h-full w-full place-items-center bg-neutral-200 text-xs text-neutral-500">
+                              No preview
+                            </div>
+                          )}
+                          {hasVideo ? (
+                            <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-xs font-semibold text-white">
+                              Video
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="border-t border-neutral-200 px-4 py-3 text-xs text-neutral-600">
+                          {timestamp}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
