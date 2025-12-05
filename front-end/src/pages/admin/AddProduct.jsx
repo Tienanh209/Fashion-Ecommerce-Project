@@ -11,7 +11,6 @@ import {
   deleteVariant as apiDeleteVariant,
   addGallery as apiAddGallery,
   deleteGallery as apiDeleteGallery,
-  importInventory as apiImportInventory,
 } from "../../services/products";
 import { listCategories } from "../../services/categories";
 import { listBrands } from "../../services/brands";
@@ -23,7 +22,6 @@ import VariantManager from "../../components/admin/products/VariantManager";
 import GalleryManager from "../../components/admin/products/GalleryManager";
 import PricingCard from "../../components/admin/products/PricingCard";
 import SummaryStats from "../../components/admin/products/SummaryStats";
-import StockImportCard from "../../components/admin/products/StockImportCard";
 
 const DEFAULT_SIZE_OPTIONS = [
   "XS",
@@ -69,9 +67,6 @@ const COLOR_OPTIONS = [
   "Orange",
   "Cream",
 ];
-
-const IMPORT_INSTRUCTIONS =
-  "Upload the Excel template (.xlsx) with columns: product_id, SKU, Size, Color, Cost Price, Selling Price, Import Inventory (Qty). Quantities will be matched by product_id and added to existing stock.";
 
 const MATERIAL_OPTIONS = [
   "Cotton",
@@ -122,7 +117,6 @@ const initialVariantForm = {
   sku: "",
   size: "",
   color: "",
-  stock: "",
   price: "",
 };
 
@@ -154,8 +148,6 @@ export default function AddProduct() {
 
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
-  const [importingStock, setImportingStock] = useState(false);
-
   const [message, setMessage] = useState({ ok: "", err: "" });
 
   const stats = useMemo(() => {
@@ -546,10 +538,7 @@ export default function AddProduct() {
         sku: variantForm.sku.trim(),
         size: variantForm.size || null,
         color: variantForm.color || null,
-        stock:
-          variantForm.stock === ""
-            ? undefined
-            : Number(variantForm.stock || 0),
+        stock: 0,
         price:
           variantForm.price === "" ? null : Number(variantForm.price || 0),
       });
@@ -640,46 +629,6 @@ export default function AddProduct() {
       setMessage({ ok: "", err: error?.message || "Failed to delete image." });
     } finally {
       setGalleryBusy(false);
-    }
-  };
-
-  const handleImportStock = async (event) => {
-    if (!productId) {
-      setMessage({ ok: "", err: "Save the product before importing stock." });
-      event.target.value = "";
-      return;
-    }
-
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const isExcelFile =
-      /\.(xlsx|xls)$/i.test(file.name) ||
-      [
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-excel",
-      ].includes(file.type);
-
-    if (!isExcelFile) {
-      setMessage({
-        ok: "",
-        err: "Unsupported file type. Please upload an Excel (.xlsx) file.",
-      });
-      event.target.value = "";
-      return;
-    }
-
-    try {
-      setImportingStock(true);
-      await apiImportInventory(productId, file);
-      setMessage({ ok: "Inventory import completed.", err: "" });
-      await loadProductDetail(productId);
-    } catch (error) {
-      console.error(error);
-      setMessage({ ok: "", err: error?.message || "Failed to import stock." });
-    } finally {
-      setImportingStock(false);
-      event.target.value = "";
     }
   };
 
@@ -788,45 +737,37 @@ export default function AddProduct() {
             thumbnailPreview={thumbnailPreview}
           />
 
-            <VariantManager
-              variants={variants}
-              variantForm={variantForm}
-              variantBusy={variantBusy}
-              onVariantChange={handleVariantChange}
-              onAddVariant={handleAddVariant}
-              onDeleteVariant={handleDeleteVariant}
-              onUpdateVariant={handleUpdateVariant}
-              disableActions={!productId}
-              sizeOptions={sizeOptions}
-              colorOptions={COLOR_OPTIONS}
-            />
+          <VariantManager
+            variants={variants}
+            variantForm={variantForm}
+            variantBusy={variantBusy}
+            onVariantChange={handleVariantChange}
+            onAddVariant={handleAddVariant}
+            onDeleteVariant={handleDeleteVariant}
+            onUpdateVariant={handleUpdateVariant}
+            disableActions={!productId}
+            sizeOptions={sizeOptions}
+            colorOptions={COLOR_OPTIONS}
+          />
+        </div>
 
-            <GalleryManager
-              galleries={galleries}
-              onAdd={handleAddGallery}
-              onDelete={handleDeleteGallery}
-              busy={galleryBusy || !productId}
-            />
-          </div>
+        <div className="space-y-6">
+          <PricingCard
+            price={form.price}
+            onPriceChange={handlePriceChange("price")}
+          />
 
-          <div className="space-y-6">
-            <PricingCard
-              price={form.price}
-              discount={form.discount}
-              onPriceChange={handlePriceChange("price")}
-              onDiscountChange={handlePriceChange("discount")}
-            />
+          <SummaryStats stats={stats} />
 
-            <SummaryStats stats={stats} />
-
-            <StockImportCard
-              instructions={IMPORT_INSTRUCTIONS}
-              importing={importingStock}
-              onImport={handleImportStock}
-            />
-          </div>
+          <GalleryManager
+            galleries={galleries}
+            onAdd={handleAddGallery}
+            onDelete={handleDeleteGallery}
+            busy={galleryBusy || !productId}
+          />
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }

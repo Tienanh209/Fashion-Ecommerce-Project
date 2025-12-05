@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Pencil, Search, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Pencil, Search, RefreshCw, Eye, X } from "lucide-react";
 
 import { listSales, getSale, createSale, updateSale, deleteSale } from "../../services/sales";
 import { listProducts } from "../../services/products";
@@ -42,6 +42,10 @@ export default function Sales() {
   const [message, setMessage] = useState({ ok: "", err: "" });
   const [bannerFile, setBannerFile] = useState(null);
   const [bannerPreview, setBannerPreview] = useState("");
+  const [historySaleId, setHistorySaleId] = useState(null);
+  const [historySaleDetail, setHistorySaleDetail] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -76,6 +80,33 @@ export default function Sales() {
       cancel = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!historySaleId) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        setHistoryLoading(true);
+        setHistoryError("");
+        const detail = await getSale(historySaleId);
+        if (cancelled) return;
+        setHistorySaleDetail(detail || null);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setHistorySaleDetail(null);
+          setHistoryError(e?.message || "Failed to load sale details");
+        }
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [historySaleId]);
 
   useEffect(() => {
     let cancel = false;
@@ -215,6 +246,27 @@ export default function Sales() {
   };
 
   const filteredProducts = useMemo(() => products, [products]);
+
+  const openHistoryModal = (saleId) => {
+    setHistorySaleId(saleId);
+    setHistorySaleDetail(null);
+    setHistoryError("");
+  };
+
+  const closeHistoryModal = () => {
+    setHistorySaleId(null);
+    setHistorySaleDetail(null);
+    setHistoryError("");
+    setHistoryLoading(false);
+  };
+
+  const historyProducts = historySaleDetail?.products || [];
+  const formatDateRange = (sale) => {
+    if (!sale) return "";
+    const start = sale.start_date ? new Date(sale.start_date).toLocaleString() : "N/A";
+    const end = sale.end_date ? new Date(sale.end_date).toLocaleString() : "N/A";
+    return `${start} → ${end}`;
+  };
 
   return (
     <div className="min-h-[calc(100vh-64px)] w-full bg-neutral-50">
@@ -380,6 +432,12 @@ export default function Sales() {
                       <div className="flex gap-2">
                         <button
                           className="rounded-md border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100"
+                          onClick={() => openHistoryModal(sale.sale_id)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          className="rounded-md border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100"
                           onClick={() => loadSale(sale.sale_id)}
                         >
                           <Pencil className="h-4 w-4" />
@@ -520,9 +578,104 @@ export default function Sales() {
                 </table>
               </div>
             </div>
-          </div>
         </div>
       </div>
     </div>
-  );
+
+    {historySaleId ? (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
+        <div className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+          <div className="flex items-start justify-between border-b border-neutral-200 px-6 py-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Sales History
+              </p>
+              <p className="text-lg font-semibold text-neutral-900">
+                {historySaleDetail?.title || `Sale #${historySaleId}`}
+              </p>
+              <p className="text-sm text-neutral-500">
+                {historyLoading ? "Đang tải…" : formatDateRange(historySaleDetail)}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeHistoryModal}
+              className="text-neutral-500 transition hover:text-neutral-800"
+              aria-label="Close history modal"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
+            {historyLoading ? (
+              <div className="py-10 text-center text-sm text-neutral-500">
+                Đang tải lịch sử khuyến mãi…
+              </div>
+            ) : historyError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {historyError}
+              </div>
+            ) : (
+              <>
+                <div className="mb-5 rounded-2xl border border-neutral-200 bg-neutral-50 px-5 py-4 text-sm text-neutral-700">
+                  <div>
+                    <span className="font-semibold text-neutral-900">Thời gian:</span>{" "}
+                    {formatDateRange(historySaleDetail) || "Không xác định"}
+                  </div>
+                  <div className="mt-1">
+                    <span className="font-semibold text-neutral-900">Giảm giá:</span>{" "}
+                    {historySaleDetail?.discount ?? 0}%
+                  </div>
+                  {historySaleDetail?.content ? (
+                    <p className="mt-3 text-neutral-600">{historySaleDetail.content}</p>
+                  ) : null}
+                </div>
+                {historyProducts.length === 0 ? (
+                  <div className="py-10 text-center text-sm text-neutral-500">
+                    Đợt khuyến mãi này chưa có sản phẩm đính kèm.
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {historyProducts.map((product) => (
+                      <div
+                        key={product.product_id || product.id}
+                        className="flex items-start gap-3 rounded-2xl border border-neutral-200 bg-white p-4"
+                      >
+                        {product.thumbnail ? (
+                          <img
+                            src={imgUrl(product.thumbnail)}
+                            alt={product.title || `Product #${product.product_id}`}
+                            className="h-20 w-20 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-neutral-100 text-xs text-neutral-500">
+                            No image
+                          </div>
+                        )}
+                        <div className="text-sm">
+                          <div className="font-semibold text-neutral-900">
+                            {product.title || `Product #${product.product_id}`}
+                          </div>
+                          <div className="text-xs text-neutral-500">
+                            #{product.product_id}
+                          </div>
+                          <div className="mt-1 text-xs text-neutral-600">
+                            {product.category || "Không rõ"} · {product.brand || "—"}
+                          </div>
+                          <div className="mt-2 text-sm font-semibold text-neutral-900">
+                            {Number(product.price || 0).toLocaleString("vi-VN")} đ
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    ) : null}
+  </div>
+);
 }

@@ -169,7 +169,7 @@ export default function VariantManager({
         </table>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm sm:grid-cols-[160px,110px,110px,90px,160px,90px]">
+      <div className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm sm:grid-cols-[160px,110px,110px,160px,90px]">
         <input
           placeholder="SKU*"
           value={variantForm.sku}
@@ -205,16 +205,6 @@ export default function VariantManager({
             </option>
           ))}
         </select>
-
-        <input
-          placeholder="Stock"
-          type="number"
-          min="0"
-          value={variantForm.stock}
-          onChange={onVariantChange("stock")}
-          className="h-9 w-full text-left rounded-md border border-neutral-300 bg-white px-3 text-center focus:outline-none focus:ring-2 focus:ring-neutral-300"
-          disabled={disableActions}
-        />
 
         <input
           placeholder="Price (₫)"
