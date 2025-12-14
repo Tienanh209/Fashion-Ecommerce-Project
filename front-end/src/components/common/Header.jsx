@@ -147,16 +147,16 @@ export default function Header() {
             Home
             <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-black transition-all group-hover:w-full" />
           </NavLink>
+          <NavLink to="/sales" className="relative group">
+            Sales
+            <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-black transition-all group-hover:w-full" />
+          </NavLink>
           <NavLink to="/shop" className="relative group">
             Shop
             <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-black transition-all group-hover:w-full" />
           </NavLink>
           <NavLink to="/virtual-tryon" className="relative group">
             Virtual Try-on
-            <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-black transition-all group-hover:w-full" />
-          </NavLink>
-          <NavLink to="/about-us" className="relative group">
-            About Us
             <span className="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-black transition-all group-hover:w-full" />
           </NavLink>
         </nav>

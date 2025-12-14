@@ -34,7 +34,7 @@ export default function PurchaseOrders() {
         }
       } catch (err) {
         console.error(err);
-        if (!cancel) setError(err?.message || "Failed to load purchase orders.");
+        if (!cancel) setError(err?.message || "Failed to load stock imports.");
       } finally {
         if (!cancel) setLoading(false);
       }
@@ -92,7 +92,7 @@ export default function PurchaseOrders() {
       <div className="mx-auto max-w-7xl px-6 py-6">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-neutral-900">Purchase Orders</h1>
+            <h1 className="text-2xl font-semibold text-neutral-900">Import Stock</h1>
             <p className="text-sm text-neutral-500">
               Track every shipment received from suppliers
             </p>
@@ -116,7 +116,7 @@ export default function PurchaseOrders() {
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
             <div className="border-b border-neutral-200 px-5 py-4">
-              <div className="text-sm font-medium text-neutral-900">Recent orders</div>
+              <div className="text-sm font-medium text-neutral-900">Recent Import</div>
               <div className="text-xs text-neutral-500">
                 Click a row to view line items
               </div>
@@ -176,7 +176,7 @@ export default function PurchaseOrders() {
                   ) : (
                     <tr>
                       <td className="px-4 py-6 text-center text-sm text-neutral-500" colSpan={5}>
-                        No purchase orders yet.
+                        No import stocks yet.
                       </td>
                     </tr>
                   )}
@@ -187,7 +187,7 @@ export default function PurchaseOrders() {
           <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
             <div className="border-b border-neutral-200 px-5 py-4">
               <div className="text-sm font-medium text-neutral-900">
-                Order details
+                Import details
               </div>
               <div className="text-xs text-neutral-500">
                 {selectedOrderId ? `#${selectedOrderId}` : "Select an order"}

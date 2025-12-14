@@ -458,7 +458,7 @@ export default function Inventory() {
         })),
       });
       setImportMessage({
-        ok: "Purchase order saved and stock updated.",
+        ok: "Import stock saved and stock updated.",
         err: "",
       });
       setShowImportModal(false);
@@ -533,7 +533,7 @@ export default function Inventory() {
               className="inline-flex items-center gap-2 rounded-md border border-neutral-300 bg-white px-3.5 py-2 text-sm text-neutral-800 hover:bg-neutral-50"
               onClick={() => navigate("/admin/purchase-orders")}
             >
-              View Purchase Orders
+              Import Stocks History
             </button>
             <button
               className="inline-flex items-center gap-2 rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90"
@@ -545,7 +545,7 @@ export default function Inventory() {
           </div>
         </div>
         <p className="mb-4 text-xs text-neutral-500">
-          Use the import flow to create purchase orders with suppliers, record quantities,
+          Use the import flow to create import stocks with suppliers, record quantities,
           and update variant prices in one step.
         </p>
 
@@ -709,7 +709,7 @@ export default function Inventory() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-neutral-900">
-                  Purchase order
+                  Import Stock
                 </h2>
                 <p className="text-sm text-neutral-500">
                   Record a supplier delivery and update stock quantities.

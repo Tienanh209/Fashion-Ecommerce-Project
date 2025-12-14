@@ -17,7 +17,7 @@ const nav = [
   { key: "dashboard", label: "Dashboard", icon: LayoutGrid, to: "/admin", end: true },
   { key: "order-management", label: "Order Management", icon: ClipboardList, to: "/admin/orders" },
   { key: "inventory", label: "Inventory", icon: Boxes, to: "/admin/inventory" },
-  { key: "purchase-orders", label: "Purchase Orders", icon: Truck, to: "/admin/purchase-orders" },
+  { key: "purchase-orders", label: "Import Stock", icon: Truck, to: "/admin/purchase-orders" },
   { key: "add-product", label: "Add Product", icon: SquarePlus, to: "/admin/addproduct" },
   { key: "sales", label: "Sales", icon: Tags, to: "/admin/sales" },
   { key: "reviews", label: "Reviews", icon: MessageSquare, to: "/admin/reviews" },
